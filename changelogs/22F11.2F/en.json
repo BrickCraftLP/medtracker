@@ -1,0 +1,62 @@
+{
+"version": "26F11.2F",
+"lang": "en",
+"changes": [
+{
+"type": "new",
+"text": "Personalize your layout with System, Light, and Pitch Black Dark modes."
+},
+{
+"type": "new",
+"text": "Design custom navigation bar gradients mixing up to four custom colors."
+},
+{
+"type": "new",
+"text": "Dozens of native Pride flag themes (Progress, MLM, WLW, Trans, Nonbinary, and more)."
+}
+],
+"blocks": [
+{
+"type": "hero",
+"title": "Express Your Identity.",
+"subtitle": "Customization is here. Make your MedTracker workspace feel completely personal with beautiful light and dark modes, color gradients, and vibrant identity palettes."
+},
+{
+"type": "heading",
+"text": "Light, Dark, and Pitch Black"
+},
+{
+"type": "paragraph",
+"text": "MedTracker now natively supports a gorgeous Pitch Black dark mode, a clean Light mode, or matching your system settings automatically. Every pixel has been re-tuned for deep contrast, keeping readability high and your eyes rested at midnight."
+},
+{
+"type": "heading",
+"text": "Your Signature Gradient"
+},
+{
+"type": "paragraph",
+"text": "You aren't locked to one accent anymore. Open the new gradient editor to blend up to four different colors together, painting your top navigation bar with your own custom masterpiece."
+},
+{
+"type": "heading",
+"text": "A Spectrum of Inclusion"
+},
+{
+"type": "paragraph",
+"text": "Your identity is yours to celebrate. We've built true-to-color theme presets honoring our communities. Select your colors directly in Settings to instantly adapt MedTracker's accent lines and backgrounds to your flag."
+},
+{
+"type": "table",
+"headers": ["Customization Block", "Available Selections"],
+"rows": [
+["Theme Modes", "Light, Dark, Pitch Black, and Auto System-Matching"],
+["Design Lab", "Up to 4 custom colors to build unique CSS gradients"],
+["Pride Spectra", "Progress Pride, MLM, WLW (Lesbian), Bisexual, Transgender, Non-binary, Demiboy/Demigirl, Aromantic & Asexual spectrum, Pansexual, Genderqueer, and more"]
+]
+},
+{
+"type": "callout",
+"text": "To start designing your custom view, simply navigate to Settings -> Appearance inside your app."
+}
+]
+}
