@@ -4,7 +4,7 @@
 "changes": [
 {
 "type": "new",
-"text": "Rebuilt sync engine — the app is instant from the very first frame."
+"text": "Rebuilt sync engine — the app is instant from the very first frame. 100x faster loading"
 },
 {
 "type": "improved",
