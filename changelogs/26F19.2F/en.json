@@ -1,0 +1,13 @@
+{
+  "version": "26F19.2F",
+  "lang": "en",
+  "changes": [
+    { "type": "fix", "text": "Fixed an issue where the update log failed to load on some platforms." }
+  ],
+  "blocks": [
+    {
+      "type": "paragraph",
+      "text": "The What's New section now loads reliably everywhere, including the web app."
+    }
+  ]
+}
