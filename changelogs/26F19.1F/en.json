@@ -1,6 +1,24 @@
 {
 "version": "26F19.1F",
-"language": "en",
+"lang": "en",
+"changes": [
+{
+"type": "new",
+"text": "Rebuilt sync engine — the app is instant from the very first frame."
+},
+{
+"type": "improved",
+"text": "Delta sync: only changed records are transferred, not the full dataset."
+},
+{
+"type": "improved",
+"text": "Background sync keeps data current without blocking the UI."
+},
+{
+"type": "new",
+"text": "Update log: see what changed in each version under Settings."
+}
+],
 "blocks": [
 {
 "type": "hero",
