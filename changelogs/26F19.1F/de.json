@@ -1,6 +1,24 @@
 {
 "version": "26F19.1F",
-"language": "de",
+"lang": "de",
+"changes": [
+{
+"type": "new",
+"text": "Neues Sync-System – die App ist ab dem ersten Frame sofort bereit."
+},
+{
+"type": "improved",
+"text": "Delta-Sync: nur geänderte Einträge werden übertragen, nicht alles."
+},
+{
+"type": "improved",
+"text": "Hintergrund-Sync hält Daten aktuell, ohne die Oberfläche zu blockieren."
+},
+{
+"type": "new",
+"text": "Update-Log: sieh dir unter Einstellungen an, was sich geändert hat."
+}
+],
 "blocks": [
 {
 "type": "hero",
@@ -37,7 +55,7 @@
 },
 {
 "type": "paragraph",
-"text": "Anstatt jedes Mal den gesamten Datensatz neu herunterzuladen, gleicht MedTracker nur noch die echten Änderungen ab — inklusive Bearbeitungen und Löschungen von deinen anderen Geräten. Weniger Datenvolumen. Schont den Akku. Und fühlt sich absolut synchron an."
+"text": "Anstatt jedes Mal den gesamten Datensatz neu herzuladen, gleicht MedTracker nur noch die echten Änderungen ab — inklusive Bearbeitungen und Löschungen von deinen anderen Geräten. Weniger Datenvolumen. Schont den Akku. Und fühlt sich absolut synchron an."
 },
 {
 "type": "heading",
