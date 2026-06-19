@@ -1,0 +1,13 @@
+{
+  "version": "26F19.2F",
+  "lang": "de",
+  "changes": [
+    { "type": "fix", "text": "Fehler behoben, durch den der Update-Log auf manchen Plattformen nicht geladen wurde." }
+  ],
+  "blocks": [
+    {
+      "type": "paragraph",
+      "text": "Der Bereich „Neuigkeiten" lädt jetzt überall zuverlässig, auch in der Web-App."
+    }
+  ]
+}

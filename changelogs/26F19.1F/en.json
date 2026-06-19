@@ -1,0 +1,94 @@
+{
+"version": "26F19.1F",
+"lang": "en",
+"changes": [
+{
+"type": "new",
+"text": "Rebuilt sync engine — the app is instant from the very first frame. 100x faster loading"
+},
+{
+"type": "improved",
+"text": "Delta sync: only changed records are transferred, not the full dataset."
+},
+{
+"type": "improved",
+"text": "Background sync keeps data current without blocking the UI."
+},
+{
+"type": "new",
+"text": "Update log: see what changed in each version under Settings."
+}
+],
+"blocks": [
+{
+"type": "hero",
+"title": "What's New in MedTracker",
+"subtitle": "Instant. The moment you open it."
+},
+{
+"type": "paragraph",
+"text": "MedTracker now greets you with your data already on screen — your topics, your widgets, your stats — from the very first frame. No spinner. No empty boxes filling in one by one. Just everything, right where you left it."
+},
+{
+"type": "heading",
+"text": "Behind that instant launch is a completely rethought sync engine."
+},
+{
+"type": "heading",
+"text": "Opens before the network even answers."
+},
+{
+"type": "paragraph",
+"text": "Your most important numbers now live right on your device and load the instant the app appears — no waiting on a connection. The fresh sync still happens, quietly, in the background, with a subtle indicator so you always know it's working."
+},
+{
+"type": "heading",
+"text": "Works everywhere. Even nowhere."
+},
+{
+"type": "paragraph",
+"text": "Your full history — every session, every exercise, all of it — is now kept on device. On a plane, in a basement, off the grid: open the app and it's all there, fully usable. When you're back online, it catches up on its own."
+},
+{
+"type": "heading",
+"text": "Syncs smarter, uses less."
+},
+{
+"type": "paragraph",
+"text": "Instead of re-downloading everything each time, MedTracker now syncs only what changed — including edits and deletions made on your other devices. Less data. Less battery. Same perfectly in-sync experience."
+},
+{
+"type": "heading",
+"text": "The Numbers"
+},
+{
+"type": "table",
+"headers": [
+"Metric",
+"Before",
+"Now"
+],
+"rows": [
+[
+"Data on first paint",
+"After the network responds (~0.5–2s on mobile)",
+"First frame (~16ms) — effectively instant"
+],
+[
+"Works offline",
+"Topics only",
+"Everything"
+],
+[
+"Data moved per routine sync",
+"The entire dataset",
+"Only what changed — up to ~95% less"
+]
+]
+},
+{
+"type": "callout",
+"text": "That's up to 50–100× faster to seeing your data on a typical launch — and it only gets better the more history you build."
+}
+]
+}

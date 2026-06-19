@@ -1,0 +1,62 @@
+{
+"version": "26F11.2F",
+"lang": "de",
+"changes": [
+{
+"type": "new",
+"text": "Personalisiere dein Layout mit System-, Hell- und echtem Pitch-Black-Modus."
+},
+{
+"type": "new",
+"text": "Erstelle eigene Navigationsleisten-Verläufe aus bis zu vier Lieblingsfarben."
+},
+{
+"type": "new",
+"text": "Dutzende native Pride-Flaggen-Themes (Progress, MLM, WLW, Trans, Nicht-binär u.v.m.)."
+}
+],
+"blocks": [
+{
+"type": "hero",
+"title": "Zeige deine Identität.",
+"subtitle": "Grenzenlose Personalisierung ist da. Gestalte deinen MedTracker-Workspace so persönlich wie noch nie – mit stilvollen Hell-/Dunkelmodi, Farbverläufen und farbenfrohen Pride-Paletten."
+},
+{
+"type": "heading",
+"text": "Hell, Dunkel und echtes Pitch Black"
+},
+{
+"type": "paragraph",
+"text": "MedTracker unterstützt jetzt nativ ein kontrastreiches, tiefschwarzes Dark Mode, ein klares Light Mode oder passt sich ganz automatisch deinen Systemeinstellungen an. Jeder Pixel wurde neu abgestimmt, um deine Augen auch bei Nacht zu schonen."
+},
+{
+"type": "heading",
+"text": "Dein ganz persönlicher Farbverlauf"
+},
+{
+"type": "paragraph",
+"text": "Du bist nicht mehr an eine einzige Akzentfarbe gebunden. Öffne unseren neuen Verlauf-Editor und mische bis zu vier verschiedene Farbtöne, um deine obere Navigationsleiste in dein ganz eigenes Meisterwerk zu verwandeln."
+},
+{
+"type": "heading",
+"text": "Das Spektrum der Vielfalt"
+},
+{
+"type": "paragraph",
+"text": "Feiere deine Identität. Wir haben originalgetreue Themes integriert, die die Vielfalt unserer LGBTQIA+ Community ehren. Wähle dein Theme in den Einstellungen, um MedTracker im Handumdrehen in deine Farben zu hüllen."
+},
+{
+"type": "table",
+"headers": ["Design-Element", "Verfügbare Optionen"],
+"rows": [
+["Theme-Modi", "Hell, Dunkel, Pitch Black (Tiefschwarz) und System-Automatik"],
+["Verlauf-Designer", "Kombiniere bis zu 4 Farben zu völlig freien CSS-Verläufen"],
+["Pride-Spektrum", "Progress Pride, MLM (Schwul), WLW (Lesbisch), Bisexuell, Transgender, Nicht-Binär, Demiboy/Demigirl, Aromatisch- & Asexuell-Spektrum, Pansexuell, Genderqueer und viele weitere"]
+]
+},
+{
+"type": "callout",
+"text": "Gehe einfach in deiner App zu Einstellungen -> Darstellung, um mit dem Gestalten deines persönlichen Layouts loszulegen."
+}
+]
+}
