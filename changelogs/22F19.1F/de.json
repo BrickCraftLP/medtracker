@@ -1,0 +1,94 @@
+{
+"version": "26F19.1F",
+"lang": "de",
+"changes": [
+{
+"type": "new",
+"text": "Neues Sync-System – die App ist ab dem ersten Frame sofort bereit."
+},
+{
+"type": "improved",
+"text": "Delta-Sync: nur geänderte Einträge werden übertragen, nicht alles."
+},
+{
+"type": "improved",
+"text": "Hintergrund-Sync hält Daten aktuell, ohne die Oberfläche zu blockieren."
+},
+{
+"type": "new",
+"text": "Update-Log: sieh dir unter Einstellungen an, was sich geändert hat."
+}
+],
+"blocks": [
+{
+"type": "hero",
+"title": "Das ist neu in MedTracker",
+"subtitle": "Sofort da. In der Sekunde, in der du es öffnest."
+},
+{
+"type": "paragraph",
+"text": "MedTracker begrüßt dich ab jetzt mit deinen Daten direkt auf dem Bildschirm — deine Themen, deine Widgets, deine Statistiken — vom allerersten Frame an. Kein Ladekreis. Keine leeren Boxen, die sich nacheinander aufbauen. Einfach alles genau da, wo du es verlassen hast."
+},
+{
+"type": "heading",
+"text": "Hinter diesem blitzschnellen Start steht eine völlig neu gedachte Synchronisation."
+},
+{
+"type": "heading",
+"text": "Öffnet sich, noch bevor das Netzwerk antwortet."
+},
+{
+"type": "paragraph",
+"text": "Deine wichtigsten Zahlen leben jetzt direkt auf deinem Gerät und laden in der Sekunde, in der die App erscheint — ganz ohne Warten auf eine Verbindung. Der aktuelle Abgleich läuft leise im Hintergrund, mit einer dezenten Anzeige, damit du immer weißt, dass alles aktuell ist."
+},
+{
+"type": "heading",
+"text": "Funktioniert überall. Selbst im Nirgewo."
+},
+{
+"type": "paragraph",
+"text": "Deine gesamte Historie — jede Sitzung, jede Übung, einfach alles — bleibt ab jetzt lokal auf deinem Gerät. Im Flugzeug, im Keller oder völlig offline: Öffne die App und alles ist voll einsatzbereit. Sobald du wieder online bist, synchronisiert sich das System von selbst."
+},
+{
+"type": "heading",
+"text": "Synchronisiert intelligenter, verbraucht weniger."
+},
+{
+"type": "paragraph",
+"text": "Anstatt jedes Mal den gesamten Datensatz neu herzuladen, gleicht MedTracker nur noch die echten Änderungen ab — inklusive Bearbeitungen und Löschungen von deinen anderen Geräten. Weniger Datenvolumen. Schont den Akku. Und fühlt sich absolut synchron an."
+},
+{
+"type": "heading",
+"text": "Die Zahlen im Vergleich"
+},
+{
+"type": "table",
+"headers": [
+"Metrik",
+"Vorher",
+"Jetzt"
+],
+"rows": [
+[
+"Datenaufbau beim Start",
+"Erst nach Netzwerkantwort (~0.5–2s auf Mobilgeräten)",
+"Erster Frame (~16ms) — praktisch augenblicklich"
+],
+[
+"Offline-Verfügbarkeit",
+"Nur Hauptthemen",
+"Vollständig alles"
+],
+[
+"Datenvolumen pro Abgleich",
+"Der gesamte Datensatz",
+"Nur noch Änderungen — bis zu ~95% weniger"
+]
+]
+},
+{
+"type": "callout",
+"text": "Das ist eine 50- bis 100-fache Beschleunigung bis zur Anzeige deiner Daten bei einem typischen App-Start — und dieser Vorteil wächst mit jedem Tag deiner Nutzungshistorie."
+}
+]
+}
