@@ -59,7 +59,7 @@
       }
     },
     {
-      "version": "26F19.1F",
+      "version": "22F19.1F",
       "date": "2026-06-19",
       "urls": {
         "en": "https://cdn.jsdelivr.net/gh/BrickCraftLP/medtracker@Updatelogs/changelogs/26F19.1F/en.json",
@@ -72,7 +72,7 @@
       }
     },
     {
-      "version": "26F11.2F",
+      "version": "22F11.2F",
       "date": "2026-06-11",
       "urls": {
         "en": "https://cdn.jsdelivr.net/gh/BrickCraftLP/medtracker@Updatelogs/changelogs/26F11.2F/en.json",
