@@ -46,11 +46,11 @@
 
   "releases": [
     {
-      "version": "26F19.2F",
+      "version": "26F19.2M",
       "date": "2026-06-19",
       "urls": {
-        "en": "https://cdn.jsdelivr.net/gh/BrickCraftLP/medtracker@Updatelogs/changelogs/26F19.2F/en.json",
-        "de": "https://cdn.jsdelivr.net/gh/BrickCraftLP/medtracker@Updatelogs/changelogs/26F19.2F/de.json"
+        "en": "https://cdn.jsdelivr.net/gh/BrickCraftLP/medtracker@Updatelogs/changelogs/26F19.2M/en.json",
+        "de": "https://cdn.jsdelivr.net/gh/BrickCraftLP/medtracker@Updatelogs/changelogs/26F19.2M/de.json"
       },
       "style": {
         "accent":   "#22c55e",
