@@ -24,6 +24,7 @@ import { syncAll } from '../services/syncEngine.js'
 // search index in step with every write.
 import { ensureIndexed } from '../services/localIndex.js'
 import { noteRemoteDelete } from '../services/sync/index.js'
+import { noteTaskDelete } from '../services/googleTasksSync.js'
 import { supabase } from '../services/supabaseConfig.js'
 
 const DataContext = createContext(null)
@@ -409,6 +410,13 @@ export function DataProvider({ children }) {
   }
 
   async function removeTopic(topicId) {
+    // The topic's todos go with it server-side, never through removeTodo, so
+    // their Google tasks would otherwise be left behind.
+    for (const td of todos) {
+      if (td.topic_id === topicId && td.google_task_id) {
+        noteTaskDelete(td.workspace_id, td.google_task_id).catch(() => {})
+      }
+    }
     beginSync()
     try {
       await deleteTopic(user.id, topicId)
@@ -449,8 +457,14 @@ export function DataProvider({ children }) {
     } finally { endSync() }
   }
 
-  async function removeTodo(todoId) {
+  // Same contract as removeEvent below: a synced todo's Google task id is gone
+  // the moment the row is, so the deletion is noted first. `skipGoogle` is set
+  // when the deletion *came* from Google.
+  async function removeTodo(todoId, { skipGoogle = false } = {}) {
     const before = todos.find(t => t.id === todoId)
+    if (!skipGoogle && before?.google_task_id) {
+      noteTaskDelete(before.workspace_id, before.google_task_id).catch(() => {})
+    }
     setTodos(prev => prev.filter(t => t.id !== todoId))
     beginSync()
     try {
@@ -663,6 +677,9 @@ export function DataProvider({ children }) {
       // workspaces: it has to show a calendar you are about to grant access
       // to, and one you just revoked, neither of which is "visible here".
       allCalendars: calendars,
+      // Unfiltered too, for Google sync: a linked calendar keeps syncing while
+      // another workspace is active.
+      allEvents: events,
       semesters: scopedSemesters,
       events: scopedEvents,
       exams: scopedExams,

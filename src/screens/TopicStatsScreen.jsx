@@ -9,6 +9,9 @@ import { useData } from '../context/DataContext.jsx'
 import { useSession } from '../hooks/useSession.js'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { useGraphSettings } from '../context/GraphSettingsContext.jsx'
+import GlassPanel from '../components/Glass/GlassPanel.jsx'
+import GlassButton from '../components/Glass/GlassButton.jsx'
+import { Pill } from '../components/Modals/WidgetConfig/controls.jsx'
 import { getLocale } from '../i18n/index.js'
 import {
   getDateRange,
@@ -118,36 +121,54 @@ function SwipeToDeleteRow({ children, onDelete, divider }) {
 
 function StatPill({ label, value }) {
   return (
-    <div style={{
-      flex: 1,
-      background: 'rgba(0, 0, 0, 0.10)',
-      backdropFilter: 'blur(20px) saturate(160%)',
-      WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-      border: '0.5px solid rgba(255,255,255,0.22)',
-      boxShadow: '0 1px 0 rgba(255,255,255,0.14) inset, 0 2px 6px rgba(0,0,0,0.08)',
-      borderRadius: 16,
-      padding: '10px 12px',
-    }}>
+    <GlassPanel
+      cornerRadius={16}
+      displacementScale={24}
+      aberrationIntensity={1}
+      tint="rgba(0, 0, 0, 0.10)"
+      style={{ flex: 1 }}
+      bodyStyle={{ padding: '10px 12px', boxShadow: HEADER_GLASS_EDGE }}
+    >
       <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.80)', fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 3, textShadow: '0 1px 3px rgba(0,0,0,0.30)' }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 800, color: 'white', letterSpacing: -0.5, textShadow: '0 1px 4px rgba(0,0,0,0.30)' }}>{value}</div>
-    </div>
+    </GlassPanel>
   )
 }
 
+// Inner hairline + top highlight for glass sitting on the coloured header.
+const HEADER_GLASS_EDGE = '0 0 0 0.5px rgba(255,255,255,0.22) inset, 0 1px 0 rgba(255,255,255,0.14) inset'
+const CARD_GLASS_EDGE = '0 0 0 0.5px var(--glass-card-stroke) inset'
+
+// Liquid-glass content card. Outer margins stay on the frame; everything else
+// (padding, overflow, typography) styles the body above the glass.
 function GlassCard({ children, style }) {
+  const { marginBottom, marginTop, ...body } = style ?? {}
   return (
-    <div style={{
-      background: 'var(--glass-card-bg)',
-      backdropFilter: 'blur(60px) saturate(200%) brightness(1.06)',
-      WebkitBackdropFilter: 'blur(60px) saturate(200%) brightness(1.06)',
-      border: '0.5px solid var(--glass-card-stroke)',
-      boxShadow: 'var(--glass-card-shadow)',
-      borderRadius: 18,
-      ...style,
-    }}>
+    <GlassPanel cornerRadius={18} style={{ marginBottom, marginTop }} bodyStyle={{ boxShadow: CARD_GLASS_EDGE, ...body }}>
       {children}
-    </div>
+    </GlassPanel>
   )
+}
+
+const chevron = open => (
+  <motion.svg
+    animate={{ rotate: open ? 180 : 0 }}
+    transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+    width="16" height="16" viewBox="0 0 24 24"
+    fill="var(--text-tertiary)"
+    style={{ marginLeft: 'auto', flexShrink: 0 }}
+  >
+    <path d="M7 10l5 5 5-5z"/>
+  </motion.svg>
+)
+
+const accordionHeadStyle = {
+  display: 'flex', alignItems: 'center', gap: 8,
+  width: '100%',
+  padding: '10px 14px',
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
 }
 
 // Minimal text + date/time composer for adding a todo already scoped to this
@@ -336,69 +357,30 @@ export default function TopicStatsScreen() {
       className="topic-stats-header">
         {/* Top row: back button left, start button right */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <motion.button
-            whileTap={{ scale: 0.88 }}
-            onClick={() => { setDirection(-1); navigate(-1) }}
-            style={{
-              background: 'rgba(0,0,0,0.18)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '0.5px solid rgba(255,255,255,0.22)',
-              borderRadius: 10,
-              padding: '7px 12px',
-              color: 'white',
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
+          <GlassButton height={36} fontSize={14} tint="rgba(0,0,0,0.18)" ink="white"
+            onClick={() => { setDirection(-1); navigate(-1) }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
               <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
             </svg>
             {t('btn.back')}
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.92 }}
-            onClick={handleStart}
-            style={{
-              background: 'rgba(0,0,0,0.18)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '0.5px solid rgba(255,255,255,0.22)',
-              borderRadius: 10,
-              padding: '7px 12px',
-              fontSize: 14,
-              fontWeight: 600,
-              color: 'white',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
+          </GlassButton>
+          <GlassButton height={36} fontSize={14} tint="rgba(255,255,255,0.26)" ink="white" onClick={handleStart}>
             ▶ {t('topicStats.start')}
-          </motion.button>
+          </GlassButton>
         </div>
 
         {/* Centered emoji + name */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 18, gap: 10 }}>
           <div style={{ fontSize: 48, lineHeight: 1, filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.25))' }}>{topic.emoji}</div>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            background: 'rgba(0, 0, 0, 0.12)',
-            backdropFilter: 'blur(16px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-            border: '0.5px solid rgba(255,255,255,0.22)',
-            boxShadow: '0 1px 0 rgba(255,255,255,0.14) inset, 0 2px 8px rgba(0,0,0,0.10)',
-            borderRadius: 12,
-            padding: '4px 14px',
-          }}>
-            <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: 'white', letterSpacing: -0.5 }}>{topic.name}</h1>
-          </div>
+          <GlassPanel
+            cornerRadius={14}
+            displacementScale={30}
+            tint="rgba(0, 0, 0, 0.12)"
+            style={{ maxWidth: '100%' }}
+            bodyStyle={{ padding: '4px 14px', boxShadow: HEADER_GLASS_EDGE }}
+          >
+            <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: 'white', letterSpacing: -0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{topic.name}</h1>
+          </GlassPanel>
           {topic.description && (
             <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.82)', lineHeight: 1.35, textShadow: '0 1px 4px rgba(0,0,0,0.40)' }}>{topic.description}</p>
           )}
@@ -415,27 +397,17 @@ export default function TopicStatsScreen() {
           {TIMEFRAMES.map(value => {
             const active = timeframe === value
             return (
-              <motion.button
+              <GlassButton
                 key={value}
-                whileTap={{ scale: 0.92 }}
+                height={34}
+                fontSize={13}
+                tint={active ? 'rgba(255,255,255,0.34)' : 'rgba(0,0,0,0.12)'}
+                ink="white"
+                style={{ flex: 1, minWidth: 0 }}
                 onClick={() => setTimeframe(value)}
-                style={{
-                  flex: 1,
-                  padding: '8px 14px',
-                  textAlign: 'center',
-                  borderRadius: 10,
-                  border: `0.5px solid ${active ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.22)'}`,
-                  background: active ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.12)',
-                  backdropFilter: 'blur(16px) saturate(180%)',
-                  WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-                  color: 'white',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
               >
                 {t(`topicStats.tf.${value}`)}
-              </motion.button>
+              </GlassButton>
             )
           })}
         </div>
@@ -444,24 +416,8 @@ export default function TopicStatsScreen() {
       <div style={{ padding: '20px 16px 0' }}>
 
         {/* Accuracy goal — collapsible */}
-        <div style={{ marginBottom: 20 }}>
-          <motion.button
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setGoalOpen(v => !v)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: 'var(--glass-card-bg)',
-              backdropFilter: 'blur(60px) saturate(200%)',
-              WebkitBackdropFilter: 'blur(60px) saturate(200%)',
-              border: '0.5px solid var(--glass-card-stroke)',
-              boxShadow: 'var(--glass-card-shadow)',
-              borderRadius: goalOpen ? '12px 12px 0 0' : 12,
-              padding: '10px 14px',
-              cursor: 'pointer',
-              marginBottom: 0,
-              width: '100%',
-            }}
-          >
+        <GlassCard style={{ marginBottom: 20 }}>
+          <motion.button whileTap={{ scale: 0.98 }} onClick={() => setGoalOpen(v => !v)} style={accordionHeadStyle}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
               {t('topicStats.goal')}
             </span>
@@ -470,15 +426,7 @@ export default function TopicStatsScreen() {
                 {goalTarget}%
               </span>
             )}
-            <motion.svg
-              animate={{ rotate: goalOpen ? 180 : 0 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-              width="16" height="16" viewBox="0 0 24 24"
-              fill="var(--text-tertiary)"
-              style={{ marginLeft: 'auto', flexShrink: 0 }}
-            >
-              <path d="M7 10l5 5 5-5z"/>
-            </motion.svg>
+            {chevron(goalOpen)}
           </motion.button>
 
           <AnimatePresence initial={false}>
@@ -488,66 +436,24 @@ export default function TopicStatsScreen() {
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.22, ease: [0.32, 0, 0.67, 0] }}
-                style={{
-                  overflow: 'hidden',
-                  background: 'var(--glass-card-bg)',
-                  backdropFilter: 'blur(60px) saturate(200%)',
-                  WebkitBackdropFilter: 'blur(60px) saturate(200%)',
-                  border: '0.5px solid var(--glass-card-stroke)',
-                  borderTop: 'none',
-                  borderRadius: '0 0 12px 12px',
-                  boxShadow: 'var(--glass-card-shadow)',
-                }}
+                style={{ overflow: 'hidden' }}
               >
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px 14px' }}>
-                  {[60, 70, 75, 80, 85, 90, 95].map(pct => {
-                    const active = goalTarget === pct
-                    return (
-                      <motion.button
-                        key={pct}
-                        whileTap={{ scale: 0.92 }}
-                        onClick={() => upsertTopic({ ...topic, target_accuracy: pct })}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: 10,
-                          border: `0.5px solid ${active ? topic.color_from + 'AA' : 'var(--glass-card-stroke)'}`,
-                          background: active ? `${topic.color_from}22` : 'var(--glass-card-bg)',
-                          backdropFilter: 'blur(60px) saturate(200%)',
-                          WebkitBackdropFilter: 'blur(60px) saturate(200%)',
-                          color: active ? topic.color_from : 'var(--text-secondary)',
-                          fontSize: 13,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {pct}%
-                      </motion.button>
-                    )
-                  })}
+                <div className="wc-pills" style={{ gap: 6, padding: '2px 14px 12px' }}>
+                  {[60, 70, 75, 80, 85, 90, 95].map(pct => (
+                    <Pill key={pct} color={topic.color_from} active={goalTarget === pct}
+                      onClick={() => upsertTopic({ ...topic, target_accuracy: pct })}>
+                      {pct}%
+                    </Pill>
+                  ))}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </GlassCard>
 
         {/* Topic weight — collapsible */}
-        <div style={{ marginBottom: 20 }}>
-          <motion.button
-            whileTap={{ scale: 0.98 }}
-            onClick={handleWeightOpen}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: 'var(--glass-card-bg)',
-              backdropFilter: 'blur(60px) saturate(200%)',
-              WebkitBackdropFilter: 'blur(60px) saturate(200%)',
-              border: '0.5px solid var(--glass-card-stroke)',
-              boxShadow: 'var(--glass-card-shadow)',
-              borderRadius: weightOpen ? '12px 12px 0 0' : 12,
-              padding: '10px 14px',
-              cursor: 'pointer',
-              width: '100%',
-            }}
-          >
+        <GlassCard style={{ marginBottom: 20 }}>
+          <motion.button whileTap={{ scale: 0.98 }} onClick={handleWeightOpen} style={accordionHeadStyle}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
               {t('topicStats.weight')}
             </span>
@@ -556,15 +462,7 @@ export default function TopicStatsScreen() {
                 {topicWeightDisplay}
               </span>
             )}
-            <motion.svg
-              animate={{ rotate: weightOpen ? 180 : 0 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-              width="16" height="16" viewBox="0 0 24 24"
-              fill="var(--text-tertiary)"
-              style={{ marginLeft: 'auto', flexShrink: 0 }}
-            >
-              <path d="M7 10l5 5 5-5z"/>
-            </motion.svg>
+            {chevron(weightOpen)}
           </motion.button>
 
           <AnimatePresence initial={false}>
@@ -574,18 +472,9 @@ export default function TopicStatsScreen() {
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.22, ease: [0.32, 0, 0.67, 0] }}
-                style={{
-                  overflow: 'hidden',
-                  background: 'var(--glass-card-bg)',
-                  backdropFilter: 'blur(60px) saturate(200%)',
-                  WebkitBackdropFilter: 'blur(60px) saturate(200%)',
-                  border: '0.5px solid var(--glass-card-stroke)',
-                  borderTop: 'none',
-                  borderRadius: '0 0 12px 12px',
-                  boxShadow: 'var(--glass-card-shadow)',
-                }}
+                style={{ overflow: 'hidden' }}
               >
-                <p style={{ margin: '10px 14px 6px', fontSize: 11, color: 'var(--text-tertiary)' }}>
+                <p style={{ margin: '2px 14px 6px', fontSize: 11, color: 'var(--text-tertiary)' }}>
                   {t('topicStats.weightHint')}
                 </p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 14px 14px' }}>
@@ -651,30 +540,22 @@ export default function TopicStatsScreen() {
                       <span style={{ fontSize: 18, fontWeight: 700, color: topic.color_from, opacity: 0.7 }}>%</span>
                     </div>
                   </div>
-                  <motion.button
-                    whileTap={weightSaving || weightSaved ? undefined : { scale: 0.93 }}
+                  <GlassButton
+                    height={44}
+                    fontSize={14}
+                    variant="primary"
+                    tint={weightSaving || weightSaved ? 'var(--border)' : topic.color_from}
+                    ink={weightSaving || weightSaved ? 'var(--text-tertiary)' : 'white'}
                     onClick={saveWeight}
                     disabled={weightSaving || weightSaved}
-                    style={{
-                      padding: '11px 18px',
-                      borderRadius: 10,
-                      border: 'none',
-                      background: weightSaving || weightSaved ? 'var(--border)' : topic.color_from,
-                      color: weightSaving || weightSaved ? 'var(--text-tertiary)' : 'white',
-                      fontSize: 14,
-                      fontWeight: 700,
-                      cursor: weightSaving || weightSaved ? 'default' : 'pointer',
-                      flexShrink: 0,
-                      transition: 'background 0.2s, color 0.2s',
-                    }}
                   >
                     {weightSaving ? '···' : t('btn.save')}
-                  </motion.button>
+                  </GlassButton>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </GlassCard>
 
         {/* Planned sessions — this topic's entries from the calendar */}
         <div style={{ marginBottom: 14 }}>
@@ -682,28 +563,14 @@ export default function TopicStatsScreen() {
             <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: 0.3 }}>
               {t('topicStats.planned')}
             </div>
-            <motion.button
-              whileTap={{ scale: 0.92 }}
-              onClick={() => navigate('/calendar', { state: { date: plannedSessions[0]?.scheduled_date ?? todayKey } })}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                background: 'var(--glass-card-bg)',
-                backdropFilter: 'blur(60px) saturate(200%)',
-                WebkitBackdropFilter: 'blur(60px) saturate(200%)',
-                border: '0.5px solid var(--glass-card-stroke)',
-                borderRadius: 20,
-                padding: '5px 10px',
-                fontSize: 12,
-                fontWeight: 600,
-                color: topic.color_from,
-                cursor: 'pointer',
-              }}
-            >
+            <GlassButton height={30} fontSize={12} tint="var(--glass-card-bg)" ink={topic.color_from}
+              style={{ '--glass-pad': '0 10px' }}
+              onClick={() => navigate('/calendar', { state: { date: plannedSessions[0]?.scheduled_date ?? todayKey } })}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill={topic.color_from}>
                 <path d="M7 2v2h10V2h2v2h1.5A1.5 1.5 0 0122 5.5v15a1.5 1.5 0 01-1.5 1.5h-17A1.5 1.5 0 012 20.5v-15A1.5 1.5 0 013.5 4H5V2h2zm13 8H4v10h16V10z"/>
               </svg>
               {t('topicStats.openCalendar')}
-            </motion.button>
+            </GlassButton>
           </div>
 
           {plannedSessions.length === 0 ? (
@@ -758,26 +625,13 @@ export default function TopicStatsScreen() {
             <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: 0.3 }}>
               {t('topicStats.todos')}
             </div>
-            <motion.button
-              whileTap={{ scale: 0.92 }}
-              onClick={() => setAddingTodo(v => !v)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                background: addingTodo ? `${topic.color_from}22` : 'var(--glass-card-bg)',
-                backdropFilter: 'blur(60px) saturate(200%)',
-                WebkitBackdropFilter: 'blur(60px) saturate(200%)',
-                border: `0.5px solid ${addingTodo ? topic.color_from : 'var(--glass-card-stroke)'}`,
-                borderRadius: 20,
-                padding: '5px 10px',
-                fontSize: 12,
-                fontWeight: 600,
-                color: topic.color_from,
-                cursor: 'pointer',
-              }}
-            >
+            <GlassButton height={30} fontSize={12} ink={topic.color_from}
+              tint={addingTodo ? `color-mix(in srgb, ${topic.color_from} 20%, var(--glass-card-bg))` : 'var(--glass-card-bg)'}
+              style={{ '--glass-pad': '0 10px' }}
+              onClick={() => setAddingTodo(v => !v)}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill={topic.color_from}><path d="M19 13H13v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
               {t('topicStats.addTodo')}
-            </motion.button>
+            </GlassButton>
           </div>
 
           <AnimatePresence initial={false}>
@@ -854,26 +708,11 @@ export default function TopicStatsScreen() {
             <div style={{ fontSize: 48, marginBottom: 12 }}>{topic.emoji}</div>
             <div style={{ fontSize: 16, fontWeight: 600 }}>{t('topicStats.noData')}</div>
             <div style={{ fontSize: 13, marginTop: 4, marginBottom: 20 }}>{t('topicStats.noDataHint')}</div>
-            <motion.button
-              whileTap={{ scale: 0.94 }}
-              onClick={handleStart}
-              style={{
-                background: topic.color_from,
-                border: 'none',
-                borderRadius: 12,
-                padding: '10px 20px',
-                color: 'white',
-                fontSize: 14,
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                boxShadow: `0 4px 16px ${topic.color_from}40`,
-              }}
-            >
+            <GlassButton height={42} fontSize={14} variant="primary" tint={topic.color_from} ink="white"
+              style={{ boxShadow: `0 4px 16px ${topic.color_from}40`, borderRadius: 21 }}
+              onClick={handleStart}>
               ▶ {t('topicStats.start')}
-            </motion.button>
+            </GlassButton>
           </div>
         ) : (
           <>

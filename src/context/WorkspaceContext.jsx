@@ -119,9 +119,13 @@ export function WorkspaceProvider({ children }) {
     const current = workspaces.find(w => w.id === id)
     if (!current) return null
     const saved = await saveWorkspace(uid, { ...current, ...patch })
-    const list = workspaces.map(w => (w.id === id ? saved : w))
-    setWorkspaces(list)
-    persist(list, activeId)
+    // Functional, so several updates awaited back to back (merging task lists
+    // touches every workspace in the group) don't each overwrite the last.
+    setWorkspaces(prev => {
+      const list = prev.map(w => (w.id === id ? saved : w))
+      persist(list, activeId)
+      return list
+    })
     return saved
   }, [uid, workspaces, activeId, persist])
 

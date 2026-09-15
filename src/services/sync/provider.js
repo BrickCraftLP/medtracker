@@ -18,8 +18,10 @@
 //   noteLocalDelete(calendar, remoteId) → Promise<void>
 //   clearState(calendarId)              → Promise<void>
 //
-// `ctx` is `{ events, upsertEvent, removeEvent }` — the provider never imports
-// React or the data context itself.
+// `ctx` is `{ events, allCalendars, upsertEvent, removeEvent }` — the provider
+// never imports React or the data context itself. `sync` resolves with
+// `{ pulled, pushed, deleted, errors, lastError }`: a row that fails is
+// counted in `errors` without failing the whole calendar.
 
 export const PROVIDER_CONTRACT = [
   'id', 'labelKey', 'isConfigured', 'hasAccess', 'connect', 'disconnect',

@@ -4,12 +4,14 @@
 // honest. An index nothing reads is an index that silently rots.
 
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useData } from '../../context/DataContext.jsx'
 import { useWorkspace } from '../../context/WorkspaceContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
 import { searchLocal } from '../../services/localIndex.js'
+import LiquidSheet from '../Glass/LiquidSheet.jsx'
+import GlassButton from '../Glass/GlassButton.jsx'
+import { Pill } from '../Modals/WidgetConfig/controls.jsx'
 
 const TYPE_ICON = { event: '📅', todo: '✅', exam: '🎓', topic: '📚', semester: '🗓️', calendar: '🎒' }
 const FILTERS = [null, 'event', 'todo', 'exam']
@@ -46,59 +48,50 @@ export default function SearchSheet({ onClose, onPick }) {
   }, [query, type, user?.id, activeWorkspaceId, calendars])
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <motion.div
-        className="modal-sheet"
-        initial={{ opacity: 0, scale: 0.96, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        transition={{ type: 'spring', damping: 26, stiffness: 340 }}
-        onClick={e => e.stopPropagation()}
-        style={{ paddingBottom: 32 }}
-      >
-        <input
-          className="input"
-          autoFocus
-          value={query}
-          placeholder={t('calendar.searchPlaceholder')}
-          onChange={e => setQuery(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Escape') onClose() }}
-          style={{ marginBottom: 10, fontSize: 16 }}
-        />
-
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-          {FILTERS.map(f => (
-            <button
-              key={f ?? 'all'}
-              onClick={() => setType(f)}
-              className="pill"
-              style={{
-                padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                border: `1.5px solid ${type === f ? 'var(--accent)' : 'var(--border)'}`,
-                background: type === f ? 'var(--accent)' : 'var(--bg-tertiary)',
-                color: type === f ? '#fff' : 'var(--text-secondary)',
-              }}
-            >
-              {f ? t(`calendar.searchType.${f}`) : t('calendar.searchType.all')}
-            </button>
-          ))}
-        </div>
-
-        {query.trim() && !results.length && (
-          <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13.5 }}>
-            {t('calendar.searchEmpty')}
+    <LiquidSheet onClose={onClose}>
+      <header className="sheet-header">
+        <div className="sheet-header__row">
+          <div className="sheet-header__titles">
+            <h2 className="sheet-header__title">{t('calendar.search')}</h2>
           </div>
-        )}
+          <GlassButton size={34} onClick={onClose} ariaLabel={t('widget.close')}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </GlassButton>
+        </div>
+      </header>
 
+      <input
+        className="input"
+        autoFocus
+        value={query}
+        placeholder={t('calendar.searchPlaceholder')}
+        onChange={e => setQuery(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Escape') onClose() }}
+        style={{ marginBottom: 12, fontSize: 16 }}
+      />
+
+      <div className="wc-pills" style={{ marginBottom: 16 }}>
+        {FILTERS.map(f => (
+          <Pill key={f ?? 'all'} active={type === f} onClick={() => setType(f)}>
+            {f ? t(`calendar.searchType.${f}`) : t('calendar.searchType.all')}
+          </Pill>
+        ))}
+      </div>
+
+      {query.trim() && !results.length && (
+        <div className="wc-empty">{t('calendar.searchEmpty')}</div>
+      )}
+
+      <div className="wc-options">
         {results.map(hit => (
           <button
             key={hit.id}
+            type="button"
+            className="wc-option"
             onClick={() => onPick?.({ type: hit.type, id: hit.ref_id, date: hit.date })}
-            style={{
-              display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%',
-              textAlign: 'left', cursor: 'pointer', marginBottom: 6, padding: '9px 11px',
-              borderRadius: 11, border: '0.5px solid var(--border)', background: 'var(--bg-tertiary)',
-            }}
+            style={{ alignItems: 'flex-start' }}
           >
             <span style={{ fontSize: 15, lineHeight: 1.3 }}>{TYPE_ICON[hit.type] ?? '•'}</span>
             <span style={{ flex: 1, minWidth: 0 }}>
@@ -117,7 +110,7 @@ export default function SearchSheet({ onClose, onPick }) {
             </span>
           </button>
         ))}
-      </motion.div>
-    </div>
+      </div>
+    </LiquidSheet>
   )
 }

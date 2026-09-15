@@ -9,6 +9,7 @@ import {
   dayKey, parseDayKey, colorOf, metaFor, withAlpha, formatRange,
 } from '../../utils/calendar/eventModel.js'
 import { ProgressUnderline } from './ProgressOutline.jsx'
+import GlassPanel from '../Glass/GlassPanel.jsx'
 
 export default function AgendaView({
   occurrences, calendarById, progressOf, locale, t, onOpenEvent,
@@ -47,10 +48,12 @@ export default function AgendaView({
       {overdue.length > 0 && (
         <>
           <DayHeader label={t('calendar.overdue')} accent="#ef4444" />
-          {overdue.map(occ => (
-            <Row key={occ.key} occ={occ} calendarById={calendarById}
-                 progressOf={progressOf} onOpenEvent={onOpenEvent} showDate locale={locale} />
-          ))}
+          <DayGroup tint="color-mix(in srgb, #ef4444 10%, var(--glass-card-bg))">
+            {overdue.map((occ, i) => (
+              <Row key={occ.key} occ={occ} calendarById={calendarById} divider={i < overdue.length - 1}
+                   progressOf={progressOf} onOpenEvent={onOpenEvent} showDate locale={locale} />
+            ))}
+          </DayGroup>
         </>
       )}
 
@@ -61,21 +64,36 @@ export default function AgendaView({
               ? t('calendar.today')
               : format(parseDayKey(date), 'EEEE, d. LLLL', { locale })
           } />
-          {list.map(occ => (
-            <Row key={occ.key} occ={occ} calendarById={calendarById}
-                 progressOf={progressOf} onOpenEvent={onOpenEvent} locale={locale} />
-          ))}
+          <DayGroup>
+            {list.map((occ, i) => (
+              <Row key={occ.key} occ={occ} calendarById={calendarById} divider={i < list.length - 1}
+                   progressOf={progressOf} onOpenEvent={onOpenEvent} locale={locale} />
+            ))}
+          </DayGroup>
         </div>
       ))}
     </div>
   )
 }
 
+// One liquid-glass card per day, not per row — dozens of glass layers in a
+// long list would make scrolling stutter.
+function DayGroup({ children, tint }) {
+  return (
+    <GlassPanel cornerRadius={16} displacementScale={28} tint={tint} style={{ marginBottom: 4 }}>
+      {children}
+    </GlassPanel>
+  )
+}
+
+// Sticky over the gradient backdrop, so it blurs instead of painting a solid bar.
 function DayHeader({ label, accent }) {
   return (
     <div style={{
-      position: 'sticky', top: 0, zIndex: 2, padding: '10px 2px 6px',
-      background: 'var(--bg-primary)', fontSize: 12, fontWeight: 700,
+      position: 'sticky', top: 0, zIndex: 3, padding: '12px 4px 6px',
+      background: 'color-mix(in srgb, var(--bg-primary) 55%, transparent)',
+      backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+      fontSize: 12, fontWeight: 700,
       letterSpacing: 0.3, textTransform: 'uppercase',
       color: accent ?? 'var(--text-secondary)',
     }}>
@@ -84,7 +102,7 @@ function DayHeader({ label, accent }) {
   )
 }
 
-function Row({ occ, calendarById, progressOf, onOpenEvent, showDate, locale }) {
+function Row({ occ, calendarById, progressOf, onOpenEvent, showDate, locale, divider }) {
   const { event } = occ
   const color = colorOf(event, calendarById)
   const meta = metaFor(event.kind)
@@ -98,13 +116,15 @@ function Row({ occ, calendarById, progressOf, onOpenEvent, showDate, locale }) {
       onClick={() => onOpenEvent?.(occ)}
       style={{
         position: 'relative', display: 'flex', alignItems: 'center', gap: 10,
-        width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 6,
-        padding: '10px 12px', borderRadius: 12,
-        border: '0.5px solid var(--glass-card-stroke)',
-        background: 'var(--glass-card-bg)',
-        borderLeft: `3px solid ${color}`,
+        width: '100%', textAlign: 'left', cursor: 'pointer',
+        padding: '11px 14px 11px 16px', border: 'none', background: 'transparent',
+        borderBottom: divider ? '0.5px solid var(--border)' : 'none',
       }}
     >
+      <span style={{
+        position: 'absolute', left: 6, top: 10, bottom: 10, width: 3,
+        borderRadius: 2, background: color,
+      }} />
       <span style={{ fontSize: 15 }}>{meta.icon}</span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{

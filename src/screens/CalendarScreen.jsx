@@ -20,6 +20,8 @@ import CalendarToolbar from '../components/Calendar/CalendarToolbar.jsx'
 import TimeGridView from '../components/Calendar/TimeGridView.jsx'
 import MonthView from '../components/Calendar/MonthView.jsx'
 import AgendaView from '../components/Calendar/AgendaView.jsx'
+import GlassPanel from '../components/Glass/GlassPanel.jsx'
+import GlassButton from '../components/Glass/GlassButton.jsx'
 import { makeGeometry } from '../utils/calendar/gridGeometry.js'
 import { expandRange } from '../utils/calendar/recurrence.js'
 import { progressByEvent } from '../utils/calculations/eventProgressCalcs.js'
@@ -57,9 +59,8 @@ export default function CalendarScreen() {
   const locale = language === 'de' ? de : enUS
   const { connectPromptDismissed, setSetting: setCalSetting } = useCalendarSettings()
 
-  // Read straight from the calendars rather than through useCalendarSync: that
-  // hook runs its own launch/foreground sync, and a second live instance here
-  // would race the one that already owns it.
+  // Read straight from the calendars: the prompt only needs to know whether
+  // anything is linked, not the sync state GoogleSyncProvider keeps.
   const showConnectPrompt = !connectPromptDismissed
     && availableProviders().length > 0
     && !calendars.some(c => c.google_sync && c.google_calendar_id)
@@ -189,6 +190,10 @@ export default function CalendarScreen() {
           // Provenance belongs to the master only: the column is uniquely
           // indexed, so copying it here would make the detach fail to save.
           legacy_scheduled_id: null,
+          // Same for the Google identity: (google_calendar_id, google_event_id)
+          // is unique too. Sync finds the matching Google instance itself.
+          google_event_id: null,
+          google_calendar_id: null,
           recurrence_parent_id: event.id,
           recurrence_date: occurrence.date,
           ...patch,
@@ -251,7 +256,12 @@ export default function CalendarScreen() {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100%', position: 'relative',
-      background: 'var(--bg-primary)', overflow: 'hidden',
+      // Glass only reads as glass when there is something behind it to bend:
+      // soft accent washes instead of a flat fill.
+      background: `radial-gradient(120% 55% at 0% 0%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 62%),
+                   radial-gradient(110% 50% at 100% 100%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+                   var(--bg-primary)`,
+      overflow: 'hidden',
     }}>
       <div style={sidePad}>
       <CalendarToolbar
@@ -277,16 +287,12 @@ export default function CalendarScreen() {
             transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
             style={{ overflow: 'hidden' }}
           >
-            <div style={{
-              margin: '4px 16px 10px', padding: '12px 14px',
-              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-              background: 'var(--glass-card-bg)',
-              backdropFilter: 'blur(60px) saturate(200%)',
-              WebkitBackdropFilter: 'blur(60px) saturate(200%)',
-              border: '0.5px solid var(--glass-card-stroke)',
-              boxShadow: 'var(--glass-card-shadow)',
-              borderRadius: 16,
-            }}>
+            <GlassPanel
+              cornerRadius={18}
+              displacementScale={30}
+              style={{ margin: '4px 16px 10px' }}
+              bodyStyle={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}
+            >
               <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                 <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text-primary)' }}>
                   {t('calsetup.banner.title')}
@@ -296,29 +302,16 @@ export default function CalendarScreen() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setCalSetting('connectPromptDismissed', true)}
-                  style={{
-                    border: 'none', background: 'transparent', cursor: 'pointer',
-                    fontSize: 13, fontWeight: 600, color: 'var(--text-tertiary)', padding: '7px 8px',
-                  }}
-                >
+                <GlassButton height={34} fontSize={13} tint="transparent" ink="var(--text-tertiary)"
+                  onClick={() => setCalSetting('connectPromptDismissed', true)}>
                   {t('calsetup.banner.dismiss')}
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => navigate('/calendar/connect')}
-                  style={{
-                    border: 'none', cursor: 'pointer', borderRadius: 10,
-                    background: 'var(--accent)', color: '#fff',
-                    fontSize: 13, fontWeight: 700, padding: '7px 14px',
-                  }}
-                >
+                </GlassButton>
+                <GlassButton height={34} fontSize={13} variant="primary"
+                  onClick={() => navigate('/calendar/connect')}>
                   {t('calsetup.banner.cta')}
-                </motion.button>
+                </GlassButton>
               </div>
-            </div>
+            </GlassPanel>
           </motion.div>
         )}
       </AnimatePresence>
@@ -389,20 +382,18 @@ export default function CalendarScreen() {
       {/* Create button. It has to dodge the navbar, which the user can move:
           a bottom pill is cleared by lifting the button, a side rail by moving
           the button to the opposite side. */}
-      <motion.button
-        whileTap={{ scale: 0.9 }}
+      <GlassButton
+        size={54}
+        variant="primary"
+        ink="#fff"
         onClick={() => createDraft({ date: anchor, startMin: 9 * 60, endMin: 10 * 60 })}
-        aria-label={t('calendar.newEvent')}
-        style={{
-          position: 'absolute',
-          ...fabPlacement,
-          width: 52, height: 52, borderRadius: '50%', border: 'none', cursor: 'pointer',
-          background: 'var(--accent)', color: '#fff', fontSize: 26, fontWeight: 300,
-          display: 'grid', placeItems: 'center', boxShadow: 'var(--shadow-lg)', zIndex: 20,
-        }}
+        ariaLabel={t('calendar.newEvent')}
+        style={{ position: 'absolute', ...fabPlacement, zIndex: 20, borderRadius: '50%', boxShadow: 'var(--shadow-lg)' }}
       >
-        +
-      </motion.button>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </GlassButton>
 
       <Suspense fallback={null}>
         <AnimatePresence>

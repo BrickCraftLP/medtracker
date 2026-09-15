@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect, lazy, Suspense } from 'react'
+import { useState, useContext, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 // The action popup drags in the log/start modals and both planner screens.
@@ -81,6 +81,8 @@ export default function Navbar() {
   const { t } = useLanguage()
   const assistant = useAssistant()
   const [showPopup, setShowPopup] = useState(false)
+  const plusRef = useRef(null)
+  const closePopup = useCallback(() => setShowPopup(false), [])
 
   useEffect(() => {
     const idle = window.requestIdleCallback ?? (cb => setTimeout(cb, 1500))
@@ -116,6 +118,7 @@ export default function Navbar() {
     return (
       <motion.button
         key={PLUS_ID}
+        ref={plusRef}
         whileTap={{ scale: 0.88 }}
         onClick={() => setShowPopup(v => !v)}
         style={{
@@ -237,7 +240,7 @@ export default function Navbar() {
       <Suspense fallback={null}>
         <AnimatePresence>
           {showPopup && (
-            <FloatingActionPopup onClose={() => setShowPopup(false)} />
+            <FloatingActionPopup onClose={closePopup} anchorRef={plusRef} />
           )}
         </AnimatePresence>
       </Suspense>

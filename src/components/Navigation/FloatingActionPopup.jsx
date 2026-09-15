@@ -6,15 +6,15 @@ const PlannerScreen = lazy(() => import('../../screens/PlannerScreen.jsx'))
 const PlannerSessionScreen = lazy(() => import('../../screens/PlannerSessionScreen.jsx'))
 import { saveActiveSession, loadActiveSession, clearActiveSession } from '../../utils/plannerSessionDB.js'
 import { useLanguage } from '../../context/LanguageContext.jsx'
-import { useNavLayout } from '../../context/NavLayoutContext.jsx'
+import NavPopover, { PopoverRow } from './NavPopover.jsx'
+import { ItemIcon } from './WorkspaceSwitcher.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { upsertActiveSession, touchActiveSession, deleteActiveSession } from '../../services/dbInterface.js'
 import { useAssistant } from '../../assistant/AssistantProvider.jsx'
 
-export default function FloatingActionPopup({ onClose }) {
+export default function FloatingActionPopup({ onClose, anchorRef }) {
   const { t } = useLanguage()
   const { user } = useAuth()
-  const { position, isVertical } = useNavLayout()
   const assistant = useAssistant()
   const [showLog, setShowLog] = useState(false)
   const [showStart, setShowStart] = useState(false)
@@ -111,98 +111,42 @@ export default function FloatingActionPopup({ onClose }) {
   }
 
   return (
-    <>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0,
-          background: 'rgba(0,0,0,0.4)',
-          backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
-          zIndex: 40,
-        }}
+    <NavPopover anchorRef={anchorRef} rowCount={assistant ? 4 : 3} onClose={onClose}>
+      <PopoverRow
+        icon={<ItemIcon icon="check" color="#007AFF" />}
+        color="#007AFF"
+        label={t('fap.logLabel')}
+        detail={t('fap.logDesc')}
+        onClick={() => setShowLog(true)}
       />
-
-      <div style={{
-        position: 'fixed',
-        // Vertical rail: the bar no longer sits under the card, so anchor
-        // lower — but keep clear of the rail on its side.
-        bottom: isVertical
-          ? 'calc(max(env(safe-area-inset-bottom, 16px), 16px) + 16px)'
-          : 'calc(max(env(safe-area-inset-bottom, 16px), 16px) + 72px)',
-        left: 0, right: 0, zIndex: 60,
-        display: 'flex', justifyContent: 'center',
-        padding: '0 24px', pointerEvents: 'none',
-        ...(isVertical
-          ? (position === 'left' ? { paddingLeft: 100 } : { paddingRight: 100 })
-          : null),
-      }}>
-        <motion.div
-          initial={{ opacity: 0, y: 24, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 16, scale: 0.95 }}
-          transition={{ type: 'spring', damping: 24, stiffness: 320 }}
-          style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360, pointerEvents: 'auto' }}
-        >
-          <ActionButton
-            icon="📋"
-            label={t('fap.logLabel')}
-            description={t('fap.logDesc')}
-            onClick={() => setShowLog(true)}
-            color="#007AFF"
-          />
-          <ActionButton
-            icon="▶️"
-            label={t('fap.startLabel')}
-            description={t('fap.startDesc')}
-            onClick={() => setShowStart(true)}
-            color="#34C759"
-          />
-          <ActionButton
-            icon="🗓️"
-            label={t('fap.plannerLabel')}
-            description={plannerSession ? t('fap.plannerResume') : t('fap.plannerDesc')}
-            onClick={() => plannerSession ? setShowSession(true) : setShowPlanner(true)}
-            color="#FF9F0A"
-            badge={!!plannerSession}
-            badgeColor="#FF453A"
-          />
-          {assistant && (
-            <ActionButton
-              icon="✨"
-              label={t('fap.assistantLabel')}
-              description={t('fap.assistantDesc')}
-              onClick={() => { onClose(); assistant.openAssistant() }}
-              color="#AF52DE"
-            />
+      <PopoverRow
+        icon={<ItemIcon icon="zap" color="#34C759" />}
+        color="#34C759"
+        label={t('fap.startLabel')}
+        detail={t('fap.startDesc')}
+        onClick={() => setShowStart(true)}
+      />
+      <PopoverRow
+        icon={<>
+          <ItemIcon icon="calendar" color="#FF9F0A" />
+          {plannerSession && (
+            <span style={{ position: 'absolute', top: -3, right: -3, width: 8, height: 8, borderRadius: '50%', background: '#FF453A' }} />
           )}
-        </motion.div>
-      </div>
-    </>
-  )
-}
-
-function ActionButton({ icon, label, description, onClick, color, badge, badgeColor }) {
-  return (
-    <motion.button
-      whileTap={{ scale: 0.96 }}
-      onClick={(e) => { e.stopPropagation(); onClick(e) }}
-      className="glass-card"
-      style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '15px 18px', borderRadius: 20, cursor: 'pointer', textAlign: 'left', width: '100%', border: 'none', position: 'relative' }}
-    >
-      <div style={{ width: 44, height: 44, borderRadius: 12, background: `${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, flexShrink: 0, position: 'relative' }}>
-        {icon}
-        {badge && (
-          <div style={{ position: 'absolute', top: -3, right: -3, width: 9, height: 9, borderRadius: '50%', background: badgeColor ?? color, border: '1.5px solid var(--bg-primary)', opacity: 0.85 }} />
-        )}
-      </div>
-      <div>
-        <div style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 17, letterSpacing: -0.3 }}>{label}</div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 1 }}>{description}</div>
-      </div>
-    </motion.button>
+        </>}
+        color="#FF9F0A"
+        label={t('fap.plannerLabel')}
+        detail={plannerSession ? t('fap.plannerResume') : t('fap.plannerDesc')}
+        onClick={() => plannerSession ? setShowSession(true) : setShowPlanner(true)}
+      />
+      {assistant && (
+        <PopoverRow
+          icon={<ItemIcon icon="spark" color="#AF52DE" />}
+          color="#AF52DE"
+          label={t('fap.assistantLabel')}
+          detail={t('fap.assistantDesc')}
+          onClick={() => { onClose(); assistant.openAssistant() }}
+        />
+      )}
+    </NavPopover>
   )
 }

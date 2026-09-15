@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useTopics } from '../../hooks/useTopics.js'
 import { useLanguage } from '../../context/LanguageContext.jsx'
+import LiquidSheet from '../Glass/LiquidSheet.jsx'
+import GlassButton from '../Glass/GlassButton.jsx'
+import SheetHeader from './WidgetConfig/SheetHeader.jsx'
+import { Field, Pill } from './WidgetConfig/controls.jsx'
 
 const EMOJI_CATEGORIES = {
   'Medizin': ['🏥','💊','🫀','🧠','🦷','👁️','💉','🩺','🩻','🩹','🩸','🧫','🫁','🦴','🦿','🦾','🧬','⚗️','🔬','🩼'],
@@ -64,6 +68,21 @@ const PAL_KEY = {
   'Dunkel':    'topicEdit.pal.dark',
 }
 
+function GradientStop({ label, color, active, onClick }) {
+  return (
+    <motion.button type="button" whileTap={{ scale: 0.95 }}
+      className={`wc-chip te-stop${active ? ' is-active' : ''}`}
+      style={{ '--pill-accent': color }}
+      onClick={onClick}>
+      <span className="te-stop__dot" style={{ background: color }} />
+      <span>
+        <div className="wc-chip__hint" style={{ margin: 0, fontWeight: 600 }}>{label}</div>
+        <div className="te-stop__hex">{color}</div>
+      </span>
+    </motion.button>
+  )
+}
+
 export default function TopicEditModal({ topic, onClose }) {
   const { createTopic, updateTopic, deleteTopic } = useTopics()
   const { t } = useLanguage()
@@ -113,218 +132,88 @@ export default function TopicEditModal({ topic, onClose }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <motion.div
-        className="modal-sheet"
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        onClick={e => e.stopPropagation()}
-        style={{ paddingBottom: 40 }}
-      >
-        <div className="modal-handle" />
+    <LiquidSheet onClose={onClose}>
+      <div style={{ '--pill-accent': colorFrom, '--accent': colorFrom }}>
+        <SheetHeader title={isNew ? t('topics.addNew') : topic.name} onClose={onClose} />
 
         {/* Preview card */}
-        <div style={{
-          height: 80,
-          borderRadius: 16,
-          background: `linear-gradient(135deg, ${colorFrom}, ${colorTo})`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          marginBottom: 20,
-          transition: 'background 0.2s',
-        }}>
-          <span style={{ fontSize: 32 }}>{emoji}</span>
-          <span style={{ fontSize: 20, fontWeight: 700, color: 'white' }}>{name || t('topicEdit.preview')}</span>
+        <div className="te-preview" style={{ background: `linear-gradient(135deg, ${colorFrom}, ${colorTo})` }}>
+          <span>{emoji}</span>
+          <span>{name || t('topicEdit.preview')}</span>
         </div>
 
-        {/* Emoji picker */}
-        <label style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 8, display: 'block' }}>{t('topicEdit.emoji')}</label>
+        <Field label={t('topicEdit.emoji')}>
+          <div className="wc-pills te-tabs">
+            {Object.keys(EMOJI_CATEGORIES).map(cat => (
+              <Pill key={cat} color={colorFrom} active={emojiCategory === cat} onClick={() => setEmojiCategory(cat)}>
+                <span className="wc-pill__emoji" style={{ fontSize: 15 }}>{CATEGORY_ICONS[cat]}</span>
+                {t(CAT_KEY[cat])}
+              </Pill>
+            ))}
+          </div>
+          <div className="te-emojis">
+            {EMOJI_CATEGORIES[emojiCategory].map(e => (
+              <motion.button key={e} type="button" whileTap={{ scale: 0.8 }}
+                className={`te-emoji${emoji === e ? ' is-active' : ''}`}
+                onClick={() => setEmoji(e)}>
+                {e}
+              </motion.button>
+            ))}
+          </div>
+        </Field>
 
-        {/* Category tabs */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto', paddingBottom: 2 }}>
-          {Object.keys(EMOJI_CATEGORIES).map(cat => (
-            <motion.button
-              key={cat}
-              whileTap={{ scale: 0.92 }}
-              onClick={() => setEmojiCategory(cat)}
-              style={{
-                flexShrink: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '5px 12px',
-                borderRadius: 20,
-                border: `1.5px solid ${emojiCategory === cat ? colorFrom : 'var(--border)'}`,
-                background: emojiCategory === cat ? colorFrom + '22' : 'var(--bg-tertiary)',
-                cursor: 'pointer',
-                fontSize: 13,
-                fontWeight: emojiCategory === cat ? 700 : 500,
-                color: emojiCategory === cat ? colorFrom : 'var(--text-secondary)',
-                transition: 'all 0.15s',
-              }}
-            >
-              <span style={{ fontSize: 15 }}>{CATEGORY_ICONS[cat]}</span>
-              {t(CAT_KEY[cat])}
-            </motion.button>
-          ))}
+        <Field label={t('topicEdit.name')}>
+          <input className="te-input" placeholder={t('topicEdit.namePlaceholder')} value={name} onChange={e => setName(e.target.value)} />
+        </Field>
+
+        <Field label={t('topicEdit.description')}>
+          <input className="te-input" placeholder={t('topicEdit.descPlaceholder')} value={description} onChange={e => setDescription(e.target.value)} />
+        </Field>
+
+        <Field label={t('topicEdit.gradient')}>
+          <div className="te-stops">
+            <GradientStop label={t('topicEdit.from')} color={colorFrom} active={activeStop === 'from'} onClick={() => setActiveStop('from')} />
+            <div className="te-stops__strip" style={{ background: `linear-gradient(135deg, ${colorFrom}, ${colorTo})` }} />
+            <GradientStop label={t('topicEdit.to')} color={colorTo} active={activeStop === 'to'} onClick={() => setActiveStop('to')} />
+          </div>
+
+          <div className="wc-chips te-palettes" style={{ gridTemplateColumns: 'repeat(4, 1fr)', '--accent': activeColor }}>
+            {Object.keys(COLOR_PALETTES).map(pal => (
+              <motion.button key={pal} type="button" whileTap={{ scale: 0.94 }}
+                className={`wc-chip${colorPalette === pal ? ' is-active' : ''}`}
+                style={colorPalette === pal ? { borderColor: activeColor, background: `${activeColor}22` } : undefined}
+                onClick={() => setColorPalette(pal)}>
+                <div className="te-palette-dots">
+                  {PALETTE_PREVIEWS[pal].map(c => <span key={c} style={{ background: c }} />)}
+                </div>
+                <div className="wc-chip__hint" style={{ margin: 0 }}>{t(PAL_KEY[pal])}</div>
+              </motion.button>
+            ))}
+          </div>
+
+          <div className="te-colors">
+            {COLOR_PALETTES[colorPalette].map(c => (
+              <motion.button key={c} type="button" whileTap={{ scale: 0.85 }}
+                aria-label={c}
+                className={`te-color${activeColor === c ? ' is-active' : ''}`}
+                style={{ background: c, '--pill-accent': c }}
+                onClick={() => setActiveColor(c)} />
+            ))}
+          </div>
+        </Field>
+
+        <div className="wc-actions">
+          {!isNew && (
+            <GlassButton height={48} style={{ flex: 1 }} variant={confirmDelete ? 'danger' : undefined}
+              onClick={handleDelete} disabled={deleting}>
+              {deleting ? t('state.deleting') : confirmDelete ? t('topicEdit.deleteConfirm') : t('topicEdit.delete')}
+            </GlassButton>
+          )}
+          <GlassButton height={48} style={{ flex: 1 }} variant="primary" onClick={handleSave} disabled={saving || !name.trim()}>
+            {saving ? t('state.saving') : isNew ? t('topicEdit.create') : t('btn.save')}
+          </GlassButton>
         </div>
-
-        {/* Emoji grid */}
-        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 18, minHeight: 88 }}>
-          {EMOJI_CATEGORIES[emojiCategory].map(e => (
-            <motion.button
-              key={e}
-              whileTap={{ scale: 0.8 }}
-              onClick={() => setEmoji(e)}
-              style={{
-                width: 38, height: 38, borderRadius: 10,
-                border: `2px solid ${emoji === e ? colorFrom : 'var(--border)'}`,
-                background: emoji === e ? colorFrom + '22' : 'var(--bg-tertiary)',
-                cursor: 'pointer', fontSize: 19,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'border-color 0.15s, background 0.15s',
-              }}
-            >
-              {e}
-            </motion.button>
-          ))}
-        </div>
-
-        {/* Name */}
-        <label style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 8, display: 'block' }}>{t('topicEdit.name')}</label>
-        <input className="input" style={{ marginBottom: 16 }} placeholder={t('topicEdit.namePlaceholder')} value={name} onChange={e => setName(e.target.value)} />
-
-        {/* Description */}
-        <label style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 8, display: 'block' }}>{t('topicEdit.description')}</label>
-        <input className="input" style={{ marginBottom: 18 }} placeholder={t('topicEdit.descPlaceholder')} value={description} onChange={e => setDescription(e.target.value)} />
-
-        {/* Color section */}
-        <label style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 10, display: 'block' }}>{t('topicEdit.gradient')}</label>
-
-        {/* Gradient stop selector */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
-          {/* Von stop */}
-          <motion.button
-            whileTap={{ scale: 0.93 }}
-            onClick={() => setActiveStop('from')}
-            style={{
-              flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-              padding: '8px 12px', borderRadius: 12,
-              border: `2px solid ${activeStop === 'from' ? colorFrom : 'var(--border)'}`,
-              background: activeStop === 'from' ? colorFrom + '18' : 'var(--bg-tertiary)',
-              cursor: 'pointer',
-            }}
-          >
-            <div style={{ width: 22, height: 22, borderRadius: 6, background: colorFrom, flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.3)' }} />
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 10, color: 'var(--text-secondary)', fontWeight: 600 }}>{t('topicEdit.from')}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-primary)', fontFamily: 'monospace' }}>{colorFrom}</div>
-            </div>
-          </motion.button>
-
-          {/* Gradient preview strip */}
-          <div style={{
-            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-            background: `linear-gradient(135deg, ${colorFrom}, ${colorTo})`,
-            border: '1.5px solid var(--border)',
-            transition: 'background 0.2s',
-          }} />
-
-          {/* Bis stop */}
-          <motion.button
-            whileTap={{ scale: 0.93 }}
-            onClick={() => setActiveStop('to')}
-            style={{
-              flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-              padding: '8px 12px', borderRadius: 12,
-              border: `2px solid ${activeStop === 'to' ? colorTo : 'var(--border)'}`,
-              background: activeStop === 'to' ? colorTo + '18' : 'var(--bg-tertiary)',
-              cursor: 'pointer',
-            }}
-          >
-            <div style={{ width: 22, height: 22, borderRadius: 6, background: colorTo, flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.3)' }} />
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 10, color: 'var(--text-secondary)', fontWeight: 600 }}>{t('topicEdit.to')}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-primary)', fontFamily: 'monospace' }}>{colorTo}</div>
-            </div>
-          </motion.button>
-        </div>
-
-        {/* Palette tabs */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          {Object.keys(COLOR_PALETTES).map(pal => (
-            <motion.button
-              key={pal}
-              whileTap={{ scale: 0.92 }}
-              onClick={() => setColorPalette(pal)}
-              style={{
-                flex: 1,
-                padding: '7px 4px',
-                borderRadius: 12,
-                border: `1.5px solid ${colorPalette === pal ? activeColor : 'var(--border)'}`,
-                background: colorPalette === pal ? activeColor + '18' : 'var(--bg-tertiary)',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <div style={{ display: 'flex', gap: 2 }}>
-                {PALETTE_PREVIEWS[pal].map(c => (
-                  <div key={c} style={{ width: 8, height: 8, borderRadius: '50%', background: c }} />
-                ))}
-              </div>
-              <span style={{
-                fontSize: 11, fontWeight: colorPalette === pal ? 700 : 500,
-                color: colorPalette === pal ? activeColor : 'var(--text-secondary)',
-              }}>
-                {t(PAL_KEY[pal])}
-              </span>
-            </motion.button>
-          ))}
-        </div>
-
-        {/* Color swatches */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-          {COLOR_PALETTES[colorPalette].map(c => (
-            <motion.button
-              key={c}
-              whileTap={{ scale: 0.85 }}
-              onClick={() => setActiveColor(c)}
-              style={{
-                width: 36, height: 36, borderRadius: 10,
-                background: c,
-                cursor: 'pointer',
-                border: activeColor === c ? '3px solid white' : '2px solid transparent',
-                boxShadow: activeColor === c ? `0 0 0 2px ${c}` : '0 1px 3px rgba(0,0,0,0.2)',
-                transition: 'transform 0.1s',
-                flexShrink: 0,
-              }}
-            />
-          ))}
-        </div>
-
-        <motion.button whileTap={{ scale: 0.97 }} className="btn btn-primary" style={{ width: '100%', marginBottom: 10 }} onClick={handleSave} disabled={saving}>
-          {saving ? t('state.saving') : isNew ? t('topicEdit.create') : t('btn.save')}
-        </motion.button>
-
-        {!isNew && (
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            className="btn btn-danger"
-            style={{ width: '100%' }}
-            onClick={handleDelete}
-            disabled={deleting}
-          >
-            {deleting ? t('state.deleting') : confirmDelete ? t('topicEdit.deleteConfirm') : t('topicEdit.delete')}
-          </motion.button>
-        )}
-      </motion.div>
-    </div>
+      </div>
+    </LiquidSheet>
   )
 }

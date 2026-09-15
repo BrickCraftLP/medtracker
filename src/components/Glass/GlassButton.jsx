@@ -7,13 +7,17 @@ const noop = () => {}
 // highlights when it gets an onClick, so it receives a no-op while the real
 // handler sits on a native <button> (keyboard + screen reader friendly).
 // `size` makes a round icon button; otherwise pass `height` (+ width/flex).
-export default function GlassButton({ children, onClick, size, height = size ?? 44, width = size, variant, disabled, ariaLabel, style }) {
+// `tint` / `ink` override the label's background and text colour. Without a
+// width the button sizes to its content via a hidden in-flow copy of it.
+export default function GlassButton({ children, onClick, size, height = size ?? 44, width = size, variant, tint, ink, fontSize, disabled, ariaLabel, style }) {
   const className = ['glass-button', size && 'glass-button--round', variant && `glass-button--${variant}`]
     .filter(Boolean)
     .join(' ')
 
   return (
-    <span className={className} style={{ width, height, ...style }}>
+    <span className={className}
+      style={{ width, height, '--glass-tint': tint, '--glass-ink': ink, '--glass-font': fontSize && `${fontSize}px`, ...style }}>
+      {!size && <span className="glass-button__sizer" aria-hidden>{children}</span>}
       <LiquidGlass
         className="liquid-fill"
         style={GLASS_CENTERED}

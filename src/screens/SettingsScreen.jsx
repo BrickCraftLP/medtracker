@@ -332,19 +332,24 @@ export default function SettingsScreen() {
       icon: ICON_CALENDAR,
       content: (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>
-          <InlineToggleRow
-            label={t('settings.calendar.shareAll')}
-            description={t('settings.calendar.shareAll.desc')}
-            checked={calSettings.shareAcrossWorkspaces}
-            onChange={(v) => calSettings.setSetting('shareAcrossWorkspaces', v)}
-          />
-          <InlineToggleRow
-            label={t('settings.calendar.syncEnabled')}
-            description={t('settings.calendar.syncEnabled.desc')}
-            checked={calSettings.syncEnabled}
-            onChange={(v) => calSettings.setSetting('syncEnabled', v)}
-          />
-          <LinkOutRow label={t('settings.calendar.manage')} onTap={() => goTo('/settings/calendar')} />
+          <p style={{ margin: '0 2px 2px', fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            {t('settings.providers.google')}
+          </p>
+          <LinkOutRow label={t('settings.providers.google')} onTap={() => goTo('/settings/google/connect')} />
+          <LinkOutRow label={t('settings.google.calendarSection')} onTap={() => goTo('/settings/google/calendar')} />
+          <LinkOutRow label={t('settings.tasks.section')} onTap={() => goTo('/settings/google/todos')} />
+
+          <p style={{ margin: '14px 2px 2px', fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            {t('settings.providers.more')}
+          </p>
+          <div style={{
+            display: 'flex', alignItems: 'center', padding: '13px 14px', borderRadius: 12,
+            background: 'var(--bg-tertiary)', opacity: 0.5,
+          }}>
+            <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-secondary)' }}>
+              {t('settings.providers.comingSoon')}
+            </span>
+          </div>
         </div>
       ),
     },

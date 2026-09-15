@@ -5,13 +5,16 @@
 // Apple-style, the block is already drawn and the sheet only asks for a name.
 
 import { useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../../context/DataContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
 import { useWorkspace } from '../../context/WorkspaceContext.jsx'
 import SubtaskList from '../Calendar/SubtaskList.jsx'
 import LinkChips from '../Calendar/LinkChips.jsx'
+import LiquidSheet from '../Glass/LiquidSheet.jsx'
+import GlassButton from '../Glass/GlassButton.jsx'
+import SheetHeader from './WidgetConfig/SheetHeader.jsx'
+import { Field, Pill, ToggleRow } from './WidgetConfig/controls.jsx'
 import {
   KINDS, metaFor, buildEvent, hhmm, dayKey, minutesOf, timeOf, DEFAULT_EVENT_MINUTES,
 } from '../../utils/calendar/eventModel.js'
@@ -69,6 +72,10 @@ export default function EventEditorModal({ draft, occurrence, onClose }) {
     [semesters, form.calendar_id],
   )
 
+  // The sheet takes the colour of the calendar the event lands in, so the
+  // accent (active pills, switch, primary button) previews where it goes.
+  const calendarColor = calendars.find(c => c.id === form.calendar_id)?.color
+
   const repeatKey = useMemo(() => {
     const rule = parseRrule(form.rrule)
     if (!rule) return 'none'
@@ -125,178 +132,156 @@ export default function EventEditorModal({ draft, occurrence, onClose }) {
     navigate('/session', { state: { topicId: form.topic_id, pauseBetweenExercises: false } })
   }
 
+  const accentVars = calendarColor ? { '--accent': calendarColor, '--pill-accent': calendarColor } : undefined
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <motion.div
-        className="modal-sheet"
-        initial={{ opacity: 0, scale: 0.96, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        transition={{ type: 'spring', damping: 26, stiffness: 340 }}
-        onClick={e => e.stopPropagation()}
-        style={{ paddingBottom: 40 }}
-      >
-        <CloseButton onClose={onClose} />
-        <h2 style={{ margin: '0 0 18px', fontSize: 21, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: -0.4 }}>
-          {isEdit ? t('calendar.editEvent') : t('calendar.newEvent')}
-        </h2>
+    <LiquidSheet onClose={onClose}>
+      <div style={accentVars}>
+        <SheetHeader
+          eyebrow={`${metaFor(form.kind).icon} ${t(metaFor(form.kind).labelKey)}`}
+          title={isEdit ? t('calendar.editEvent') : t('calendar.newEvent')}
+          onClose={onClose}
+        />
 
         <input
-          className="input"
+          className="te-input"
           autoFocus={!isEdit}
           value={form.title}
           placeholder={t('calendar.titlePlaceholder')}
           onChange={e => patch({ title: e.target.value })}
-          style={{ marginBottom: 14, fontSize: 16, fontWeight: 600 }}
+          style={{ height: 48, marginBottom: 20, fontSize: 17, fontWeight: 600 }}
         />
 
-        <FieldLabel>{t('calendar.kindLabel')}</FieldLabel>
-        <ChipRow style={{ marginBottom: 14 }}>
-          {KINDS.map(kind => (
-            <Chip key={kind} active={form.kind === kind} onClick={() => patch({ kind })}>
-              {metaFor(kind).icon} {t(metaFor(kind).labelKey)}
-            </Chip>
-          ))}
-        </ChipRow>
+        <Field label={t('calendar.kindLabel')}>
+          <div className="wc-pills">
+            {KINDS.map(kind => (
+              <Pill key={kind} active={form.kind === kind} onClick={() => patch({ kind })}>
+                {metaFor(kind).icon} {t(metaFor(kind).labelKey)}
+              </Pill>
+            ))}
+          </div>
+        </Field>
 
-        <FieldLabel>{t('calendar.calendarLabel')}</FieldLabel>
-        <ChipRow style={{ marginBottom: 14 }}>
-          {calendars.map(cal => (
-            <Chip key={cal.id} active={form.calendar_id === cal.id} color={cal.color}
-                  onClick={() => patch({ calendar_id: cal.id, semester_id: null })}>
-              {cal.icon ?? '🎓'} {cal.name}
-            </Chip>
-          ))}
-        </ChipRow>
+        <Field label={t('calendar.calendarLabel')}>
+          <div className="wc-pills">
+            {calendars.map(cal => (
+              <Pill key={cal.id} active={form.calendar_id === cal.id} color={cal.color}
+                    onClick={() => patch({ calendar_id: cal.id, semester_id: null })}>
+                {cal.icon ?? '🎓'} {cal.name}
+              </Pill>
+            ))}
+          </div>
+        </Field>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <FieldLabel style={{ margin: 0, flex: 1 }}>{t('calendar.allDay')}</FieldLabel>
-          <button
-            onClick={() => patch({ all_day: !form.all_day })}
-            style={{
-              width: 44, height: 26, borderRadius: 9999, cursor: 'pointer', border: 'none',
-              background: form.all_day ? 'var(--accent)' : 'var(--bg-tertiary)',
-              position: 'relative', transition: 'background 0.2s',
-            }}
-          >
-            <span style={{
-              position: 'absolute', top: 3, left: form.all_day ? 21 : 3,
-              width: 20, height: 20, borderRadius: '50%', background: '#fff',
-              transition: 'left 0.18s cubic-bezier(0.32,0.72,0,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
-            }} />
-          </button>
-        </div>
+        <ToggleRow label={t('calendar.allDay')} value={form.all_day} onChange={all_day => patch({ all_day })} />
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-          <div style={{ flex: 1 }}>
-            <FieldLabel>{t('calendar.date')}</FieldLabel>
+        <div className="ee-when">
+          <Field label={t('calendar.date')}>
             <input
-              className="input" type="date" value={form.start_date}
+              className="te-input" type="date" value={form.start_date}
               onChange={e => patch({ start_date: e.target.value, end_date: e.target.value })}
             />
-          </div>
+          </Field>
           {!form.all_day && (
             <>
-              <div style={{ width: 96 }}>
-                <FieldLabel>{t('calendar.from')}</FieldLabel>
-                <input className="input" type="time" value={hhmm(form.start_time)}
+              <Field label={t('calendar.from')}>
+                <input className="te-input" type="time" value={hhmm(form.start_time)}
                        onChange={e => setStartTime(e.target.value)} />
-              </div>
-              <div style={{ width: 96 }}>
-                <FieldLabel>{t('calendar.to')}</FieldLabel>
-                <input className="input" type="time" value={hhmm(form.end_time)}
+              </Field>
+              <Field label={t('calendar.to')}>
+                <input className="te-input" type="time" value={hhmm(form.end_time)}
                        onChange={e => patch({ end_time: `${e.target.value}:00` })} />
-              </div>
+              </Field>
             </>
           )}
         </div>
 
-        <FieldLabel>{t('calendar.repeat')}</FieldLabel>
-        <ChipRow style={{ marginBottom: 14 }}>
-          {REPEATS.map(r => (
-            <Chip key={r.key} active={repeatKey === r.key} onClick={() => setRepeat(r.key)}>
-              {t(`calendar.repeat.${r.key}`)}
-            </Chip>
-          ))}
-        </ChipRow>
+        <Field label={t('calendar.repeat')}>
+          <div className="wc-pills">
+            {REPEATS.map(r => (
+              <Pill key={r.key} active={repeatKey === r.key} onClick={() => setRepeat(r.key)}>
+                {t(`calendar.repeat.${r.key}`)}
+              </Pill>
+            ))}
+          </div>
+        </Field>
 
         {form.rrule && (
-          <div style={{ marginBottom: 14 }}>
-            <FieldLabel>{t('calendar.repeatUntil')}</FieldLabel>
-            <input className="input" type="date" value={form.rrule_until ?? ''}
+          <Field label={t('calendar.repeatUntil')}>
+            <input className="te-input" type="date" value={form.rrule_until ?? ''}
                    onChange={e => patch({ rrule_until: e.target.value || null })} />
-          </div>
+          </Field>
         )}
 
-        <FieldLabel>{t('calendar.reminders')}</FieldLabel>
-        <ChipRow style={{ marginBottom: 14 }}>
-          {REMINDER_CHOICES.map(min => {
-            const active = form.reminders.includes(min)
-            return (
-              <Chip
-                key={min}
-                active={active}
-                onClick={() => patch({
-                  reminders: active
-                    ? form.reminders.filter(m => m !== min)
-                    : [...form.reminders, min].sort((a, b) => a - b),
-                })}
-              >
-                {min === 0 ? t('calendar.reminderAtStart')
-                  : min >= 60 ? t('calendar.reminderHours', { n: String(min / 60) })
-                  : t('calendar.reminderMinutes', { n: String(min) })}
-              </Chip>
-            )
-          })}
-        </ChipRow>
+        <Field label={t('calendar.reminders')}>
+          <div className="wc-pills">
+            {REMINDER_CHOICES.map(min => {
+              const active = form.reminders.includes(min)
+              return (
+                <Pill
+                  key={min}
+                  active={active}
+                  onClick={() => patch({
+                    reminders: active
+                      ? form.reminders.filter(m => m !== min)
+                      : [...form.reminders, min].sort((a, b) => a - b),
+                  })}
+                >
+                  {min === 0 ? t('calendar.reminderAtStart')
+                    : min >= 60 ? t('calendar.reminderHours', { n: String(min / 60) })
+                    : t('calendar.reminderMinutes', { n: String(min) })}
+                </Pill>
+              )
+            })}
+          </div>
+        </Field>
 
         {(form.kind === 'study' || form.kind === 'exam') && topics.length > 0 && (
-          <>
-            <FieldLabel>{t('calendar.topic')}</FieldLabel>
-            <ChipRow style={{ marginBottom: 14 }}>
+          <Field label={t('calendar.topic')}>
+            <div className="wc-pills">
               {topics.map(tp => (
-                <Chip key={tp.id} active={form.topic_id === tp.id} color={tp.color_from}
+                <Pill key={tp.id} active={form.topic_id === tp.id} color={tp.color_from}
                       onClick={() => patch({ topic_id: form.topic_id === tp.id ? null : tp.id })}>
-                  {tp.emoji} {tp.name}
-                </Chip>
+                  <span className="wc-pill__emoji">{tp.emoji}</span>{tp.name}
+                </Pill>
               ))}
-            </ChipRow>
-          </>
+            </div>
+          </Field>
         )}
 
         {calendarSemesters.length > 0 && (
-          <>
-            <FieldLabel>{t('calendar.semester')}</FieldLabel>
-            <ChipRow style={{ marginBottom: 14 }}>
+          <Field label={t('calendar.semester')}>
+            <div className="wc-pills">
               {calendarSemesters.map(s => (
-                <Chip key={s.id} active={form.semester_id === s.id}
+                <Pill key={s.id} active={form.semester_id === s.id}
                       onClick={() => patch({ semester_id: form.semester_id === s.id ? null : s.id })}>
                   {s.name}
-                </Chip>
+                </Pill>
               ))}
-            </ChipRow>
-          </>
+            </div>
+          </Field>
         )}
 
-        <FieldLabel>{t('calendar.location')}</FieldLabel>
-        <input
-          className="input" value={form.location ?? ''} placeholder={t('calendar.locationPlaceholder')}
-          onChange={e => patch({ location: e.target.value })} style={{ marginBottom: 14 }}
-        />
+        <Field label={t('calendar.location')}>
+          <input
+            className="te-input" value={form.location ?? ''} placeholder={t('calendar.locationPlaceholder')}
+            onChange={e => patch({ location: e.target.value })}
+          />
+        </Field>
 
-        <FieldLabel>{t('calendar.links')}</FieldLabel>
-        <div style={{ marginBottom: 14 }}>
+        <Field label={t('calendar.links')}>
           <LinkChips links={form.links} onChange={links => patch({ links })} t={t} />
-        </div>
+        </Field>
 
-        <FieldLabel>{t('calendar.note')}</FieldLabel>
-        <input
-          className="input" value={form.notes ?? ''} placeholder={t('calendar.notePlaceholder')}
-          onChange={e => patch({ notes: e.target.value })} style={{ marginBottom: 16 }}
-        />
+        <Field label={t('calendar.note')}>
+          <input
+            className="te-input" value={form.notes ?? ''} placeholder={t('calendar.notePlaceholder')}
+            onChange={e => patch({ notes: e.target.value })}
+          />
+        </Field>
 
         {isEdit && (
-          <div style={{ marginBottom: 16 }}>
+          <div className="wc-sub" style={{ marginBottom: 20 }}>
             <SubtaskList
               todos={todos}
               eventId={existing.id}
@@ -310,83 +295,30 @@ export default function EventEditorModal({ draft, occurrence, onClose }) {
           </div>
         )}
 
-        <motion.button
-          whileTap={{ scale: 0.97 }} className="btn btn-primary"
-          style={{ width: '100%' }} disabled={saving || !form.calendar_id} onClick={handleSave}
-        >
-          {t('calendar.save')}
-        </motion.button>
-
-        {isEdit && form.kind === 'study' && form.topic_id && (
-          <motion.button whileTap={{ scale: 0.97 }} className="btn btn-secondary"
-                         style={{ width: '100%', marginTop: 8 }} onClick={startSession}>
-            {t('calendar.start')}
-          </motion.button>
-        )}
-
-        {isEdit && (
-          <motion.button whileTap={{ scale: 0.97 }} className="btn btn-danger"
-                         style={{ width: '100%', marginTop: 8 }} disabled={saving} onClick={handleDelete}>
-            {t('calendar.delete')}
-          </motion.button>
-        )}
-
         {!form.calendar_id && (
-          <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--wrong)', textAlign: 'center' }}>
+          <div className="wc-hint" style={{ marginBottom: 10, color: 'var(--wrong)', textAlign: 'center' }}>
             {t('calendar.noCalendars')}
           </div>
         )}
-      </motion.div>
-    </div>
-  )
-}
 
-function ChipRow({ children, style }) {
-  return <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', ...style }}>{children}</div>
-}
+        {isEdit && form.kind === 'study' && form.topic_id && (
+          <GlassButton height={46} width="100%" style={{ marginBottom: 10 }} onClick={startSession}>
+            ▶ {t('calendar.start')}
+          </GlassButton>
+        )}
 
-function Chip({ children, active, color, onClick }) {
-  const accent = color ?? 'var(--accent)'
-  return (
-    <button
-      onClick={onClick}
-      className="pill"
-      style={{
-        padding: '5px 11px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-        border: `1.5px solid ${active ? accent : 'var(--border)'}`,
-        background: active ? accent : 'var(--bg-tertiary)',
-        color: active ? '#fff' : 'var(--text-secondary)',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-function FieldLabel({ children, style }) {
-  return (
-    <div style={{
-      fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)',
-      letterSpacing: 0.3, marginBottom: 6, ...style,
-    }}>{children}</div>
-  )
-}
-
-function CloseButton({ onClose }) {
-  return (
-    <button
-      onClick={onClose} aria-label="close"
-      style={{
-        position: 'absolute', top: 16, right: 16, width: 30, height: 30, borderRadius: '50%',
-        display: 'grid', placeItems: 'center', cursor: 'pointer', border: 'none',
-        background: 'var(--bg-tertiary)',
-      }}
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-           stroke="var(--text-secondary)" strokeWidth="2.4" strokeLinecap="round">
-        <path d="M6 6l12 12M18 6L6 18" />
-      </svg>
-    </button>
+        <div className="wc-actions">
+          {isEdit && (
+            <GlassButton height={48} style={{ flex: 1 }} variant="danger" disabled={saving} onClick={handleDelete}>
+              {t('calendar.delete')}
+            </GlassButton>
+          )}
+          <GlassButton height={48} style={{ flex: 1 }} variant="primary"
+                       disabled={saving || !form.calendar_id} onClick={handleSave}>
+            {t('calendar.save')}
+          </GlassButton>
+        </div>
+      </div>
+    </LiquidSheet>
   )
 }

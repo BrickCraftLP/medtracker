@@ -6,14 +6,26 @@
 // updated_at and have the phone and the laptop fight over it.
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useData } from '../../context/DataContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
 import { useCalendarSettings } from '../../context/CalendarSettingsContext.jsx'
 import { dayKey } from '../../utils/calendar/eventModel.js'
+import LiquidSheet from '../Glass/LiquidSheet.jsx'
+import GlassButton from '../Glass/GlassButton.jsx'
+import SheetHeader from './WidgetConfig/SheetHeader.jsx'
+import { Field, ChipGrid } from './WidgetConfig/controls.jsx'
 
 const SWATCHES = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#64748b']
 const ICONS = ['🎓', '📚', '🧪', '🩺', '⚖️', '💻', '🎨', '🏛️']
+
+const EXPAND = {
+  initial: { height: 0, opacity: 0 },
+  animate: { height: 'auto', opacity: 1 },
+  exit: { height: 0, opacity: 0 },
+  transition: { duration: 0.22, ease: [0.32, 0.72, 0, 1] },
+  style: { overflow: 'hidden' },
+}
 
 export default function CalendarManagerModal({ hidden, onToggle, onClose }) {
   const { calendars, semesters, events, upsertCalendar, removeCalendar, upsertSemester, removeSemester } = useData()
@@ -53,91 +65,80 @@ export default function CalendarManagerModal({ hidden, onToggle, onClose }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <motion.div
-        className="modal-sheet"
-        initial={{ opacity: 0, scale: 0.96, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        transition={{ type: 'spring', damping: 26, stiffness: 340 }}
-        onClick={e => e.stopPropagation()}
-        style={{ paddingBottom: 40 }}
-      >
-        <CloseButton onClose={onClose} />
-        <h2 style={{ margin: '0 0 18px', fontSize: 21, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: -0.4 }}>
-          {t('calendar.calendars')}
-        </h2>
+    <LiquidSheet onClose={onClose}>
+      <SheetHeader title={t('calendar.calendars')} onClose={onClose} />
 
-        {calendars.map(cal => (
-          <div key={cal.id} style={{ marginBottom: 8 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
-              borderRadius: 12, background: 'var(--bg-tertiary)',
-            }}>
-              <button
+      {calendars.map(cal => {
+        const visible = !hidden.includes(cal.id)
+        const isOpen = editing === cal.id
+        return (
+          <div key={cal.id} className="cm-item" style={{ '--pill-accent': cal.color }}>
+            <div className="cm-row">
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.85 }}
+                className={`cm-check${visible ? ' is-on' : ''}`}
                 onClick={() => onToggle(cal.id)}
                 aria-label={t('calendar.toggleVisible')}
-                style={{
-                  width: 20, height: 20, borderRadius: 6, cursor: 'pointer', flexShrink: 0,
-                  border: `2px solid ${cal.color}`,
-                  background: hidden.includes(cal.id) ? 'transparent' : cal.color,
-                }}
-              />
-              <span style={{ fontSize: 15 }}>{cal.icon ?? '🎓'}</span>
-              <span style={{
-                flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600, color: 'var(--text-primary)',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-              }}>
-                {cal.name}
-              </span>
-              <button
-                onClick={() => setEditing(editing === cal.id ? null : cal.id)}
-                style={{
-                  border: 'none', background: 'transparent', cursor: 'pointer',
-                  fontSize: 12.5, fontWeight: 600, color: 'var(--accent)',
-                }}
+                aria-pressed={visible}
               >
-                {editing === cal.id ? t('calendar.done') : t('calendar.editShort')}
+                {visible && (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round">
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </motion.button>
+              <span className="cm-row__icon">{cal.icon ?? '🎓'}</span>
+              <span className="cm-row__name" style={{ opacity: visible ? 1 : 0.55 }}>{cal.name}</span>
+              <button type="button" className="cm-link" onClick={() => setEditing(isOpen ? null : cal.id)}>
+                {isOpen ? t('calendar.done') : t('calendar.editShort')}
               </button>
             </div>
 
-            {editing === cal.id && (
+            <AnimatePresence initial={false}>
+              {isOpen && (
+                <motion.div key="editor" {...EXPAND}>
+                  <CalendarEditor
+                    calendar={cal}
+                    semesters={semesters.filter(s => s.calendar_id === cal.id)}
+                    onSave={saveCalendar}
+                    onDelete={() => deleteCalendar(cal)}
+                    onSaveSemester={upsertSemester}
+                    onDeleteSemester={removeSemester}
+                    canDelete={calendars.length > 1}
+                    busy={busy}
+                    t={t}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )
+      })}
+
+      <AnimatePresence initial={false} mode="wait">
+        {editing === 'new' ? (
+          <motion.div key="new" {...EXPAND}>
+            <div className="cm-item">
               <CalendarEditor
-                calendar={cal}
-                semesters={semesters.filter(s => s.calendar_id === cal.id)}
+                calendar={{ name: '', color: SWATCHES[0], icon: ICONS[0], kind: 'study', grade_scheme: 'at-de' }}
+                semesters={[]}
                 onSave={saveCalendar}
-                onDelete={() => deleteCalendar(cal)}
-                onSaveSemester={upsertSemester}
-                onDeleteSemester={removeSemester}
-                canDelete={calendars.length > 1}
+                onCancel={() => setEditing(null)}
                 busy={busy}
                 t={t}
               />
-            )}
-          </div>
-        ))}
-
-        {editing === 'new' ? (
-          <CalendarEditor
-            calendar={{ name: '', color: SWATCHES[0], icon: ICONS[0], kind: 'study', grade_scheme: 'at-de' }}
-            semesters={[]}
-            onSave={saveCalendar}
-            onCancel={() => setEditing(null)}
-            busy={busy}
-            t={t}
-          />
+            </div>
+          </motion.div>
         ) : (
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            className="btn btn-secondary"
-            style={{ width: '100%', marginTop: 10 }}
-            onClick={() => setEditing('new')}
-          >
-            {t('calendar.newCalendar')}
-          </motion.button>
+          <motion.div key="add" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ marginTop: 6 }}>
+            <GlassButton height={48} width="100%" onClick={() => setEditing('new')}>
+              + {t('calendar.newCalendar')}
+            </GlassButton>
+          </motion.div>
         )}
-      </motion.div>
-    </div>
+      </AnimatePresence>
+    </LiquidSheet>
   )
 }
 
@@ -148,65 +149,57 @@ function CalendarEditor({
   const patch = p => setDraft(prev => ({ ...prev, ...p }))
 
   return (
-    <div style={{
-      padding: '12px 12px 14px', marginTop: 4, borderRadius: 12,
-      background: 'var(--bg-secondary)', border: '0.5px solid var(--border)',
-    }}>
-      <FieldLabel>{t('calendar.calendarName')}</FieldLabel>
-      <input
-        className="input"
-        value={draft.name}
-        onChange={e => patch({ name: e.target.value })}
-        placeholder={t('calendar.calendarNamePlaceholder')}
-        style={{ marginBottom: 10 }}
-      />
+    <div className="cm-editor" style={{ '--pill-accent': draft.color, '--accent': draft.color }}>
+      <Field label={t('calendar.calendarName')}>
+        <input
+          className="te-input"
+          value={draft.name}
+          onChange={e => patch({ name: e.target.value })}
+          placeholder={t('calendar.calendarNamePlaceholder')}
+        />
+      </Field>
 
-      <FieldLabel>{t('calendar.color')}</FieldLabel>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-        {SWATCHES.map(c => (
-          <button
-            key={c}
-            onClick={() => patch({ color: c })}
-            aria-label={c}
-            style={{
-              width: 26, height: 26, borderRadius: '50%', background: c, cursor: 'pointer',
-              border: draft.color === c ? '2.5px solid var(--text-primary)' : '2.5px solid transparent',
-            }}
-          />
-        ))}
-      </div>
+      <Field label={t('calendar.color')}>
+        <div className="te-colors">
+          {SWATCHES.map(c => (
+            <motion.button
+              key={c}
+              type="button"
+              whileTap={{ scale: 0.85 }}
+              aria-label={c}
+              className={`te-color cm-swatch${draft.color === c ? ' is-active' : ''}`}
+              style={{ background: c, '--pill-accent': c }}
+              onClick={() => patch({ color: c })}
+            />
+          ))}
+        </div>
+      </Field>
 
-      <FieldLabel>{t('calendar.icon')}</FieldLabel>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-        {ICONS.map(ic => (
-          <button
-            key={ic}
-            onClick={() => patch({ icon: ic })}
-            style={{
-              width: 30, height: 30, borderRadius: 8, fontSize: 15, cursor: 'pointer',
-              background: draft.icon === ic ? 'var(--accent-light)' : 'var(--bg-tertiary)',
-              border: draft.icon === ic ? '1.5px solid var(--accent)' : '1.5px solid transparent',
-            }}
-          >{ic}</button>
-        ))}
-      </div>
+      <Field label={t('calendar.icon')}>
+        <div className="te-emojis" style={{ minHeight: 0 }}>
+          {ICONS.map(ic => (
+            <motion.button
+              key={ic}
+              type="button"
+              whileTap={{ scale: 0.8 }}
+              className={`te-emoji${draft.icon === ic ? ' is-active' : ''}`}
+              onClick={() => patch({ icon: ic })}
+            >{ic}</motion.button>
+          ))}
+        </div>
+      </Field>
 
-      <FieldLabel>{t('calendar.gradeScheme')}</FieldLabel>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-        {[['at-de', t('calendar.gradeScheme.atde')], ['pct', t('calendar.gradeScheme.pct')]].map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => patch({ grade_scheme: key })}
-            className="pill"
-            style={{
-              flex: 1, padding: '6px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              border: `1.5px solid ${draft.grade_scheme === key ? 'var(--accent)' : 'var(--border)'}`,
-              background: draft.grade_scheme === key ? 'var(--accent)' : 'var(--bg-tertiary)',
-              color: draft.grade_scheme === key ? '#fff' : 'var(--text-secondary)',
-            }}
-          >{label}</button>
-        ))}
-      </div>
+      <Field label={t('calendar.gradeScheme')}>
+        <ChipGrid
+          columns={2}
+          value={draft.grade_scheme}
+          onChange={grade_scheme => patch({ grade_scheme })}
+          options={[
+            { value: 'at-de', label: t('calendar.gradeScheme.atde') },
+            { value: 'pct', label: t('calendar.gradeScheme.pct') },
+          ]}
+        />
+      </Field>
 
       {calendar.id && (
         <SemesterList
@@ -218,28 +211,22 @@ function CalendarEditor({
         />
       )}
 
-      <motion.button
-        whileTap={{ scale: 0.97 }}
-        className="btn btn-primary"
-        style={{ width: '100%', marginTop: 12 }}
-        disabled={busy || !draft.name.trim()}
-        onClick={() => onSave(draft)}
-      >
-        {t('calendar.save')}
-      </motion.button>
-
-      {onCancel && (
-        <motion.button whileTap={{ scale: 0.97 }} className="btn btn-secondary"
-                       style={{ width: '100%', marginTop: 8 }} onClick={onCancel}>
-          {t('calendar.cancel')}
-        </motion.button>
-      )}
-      {onDelete && canDelete && (
-        <motion.button whileTap={{ scale: 0.97 }} className="btn btn-danger"
-                       style={{ width: '100%', marginTop: 8 }} disabled={busy} onClick={onDelete}>
-          {t('calendar.deleteCalendar')}
-        </motion.button>
-      )}
+      <div className="wc-actions">
+        {onCancel && (
+          <GlassButton height={46} style={{ flex: 1 }} onClick={onCancel}>
+            {t('calendar.cancel')}
+          </GlassButton>
+        )}
+        {onDelete && canDelete && (
+          <GlassButton height={46} style={{ flex: 1 }} variant="danger" disabled={busy} onClick={onDelete}>
+            {t('calendar.deleteCalendar')}
+          </GlassButton>
+        )}
+        <GlassButton height={46} style={{ flex: 1 }} variant="primary"
+                     disabled={busy || !draft.name.trim()} onClick={() => onSave(draft)}>
+          {t('calendar.save')}
+        </GlassButton>
+      </div>
     </div>
   )
 }
@@ -247,85 +234,59 @@ function CalendarEditor({
 function SemesterList({ calendarId, semesters, onSave, onDelete, t }) {
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState({ name: '', start_date: dayKey(), end_date: dayKey() })
+  const invalid = !draft.name.trim() || draft.end_date < draft.start_date
 
   async function save() {
-    if (!draft.name.trim() || draft.end_date < draft.start_date) return
+    if (invalid) return
     await onSave({ ...draft, name: draft.name.trim(), calendar_id: calendarId, display_order: semesters.length })
     setDraft({ name: '', start_date: dayKey(), end_date: dayKey() })
     setAdding(false)
   }
 
   return (
-    <div style={{ marginTop: 6 }}>
-      <FieldLabel>{t('calendar.semesters')}</FieldLabel>
+    <div className="wc-field">
+      <div className="wc-field__head">
+        <div className="wc-label">{t('calendar.semesters')}</div>
+        {!adding && (
+          <button type="button" className="cm-link" onClick={() => setAdding(true)}>
+            + {t('calendar.newSemester')}
+          </button>
+        )}
+      </div>
+
       {semesters.map(s => (
-        <div key={s.id} style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', marginBottom: 4,
-          borderRadius: 9, background: 'var(--bg-tertiary)', fontSize: 12.5,
-        }}>
-          <span style={{ flex: 1, fontWeight: 600, color: 'var(--text-primary)' }}>{s.name}</span>
-          <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>
-            {s.start_date} → {s.end_date}
-          </span>
-          <button
-            onClick={() => onDelete(s.id)}
-            style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--wrong)', fontSize: 15 }}
-            aria-label={t('calendar.delete')}
-          >×</button>
+        <div key={s.id} className="cm-semester">
+          <span className="cm-semester__name">{s.name}</span>
+          <span className="cm-semester__dates">{s.start_date} → {s.end_date}</span>
+          <button type="button" className="cm-semester__remove" onClick={() => onDelete(s.id)}
+                  aria-label={t('calendar.delete')}>×</button>
         </div>
       ))}
 
-      {adding ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
-          <input className="input" value={draft.name} placeholder={t('calendar.semesterPlaceholder')}
-                 onChange={e => setDraft({ ...draft, name: e.target.value })} />
-          <div style={{ display: 'flex', gap: 6 }}>
-            <input className="input" type="date" value={draft.start_date}
-                   onChange={e => setDraft({ ...draft, start_date: e.target.value })} />
-            <input className="input" type="date" value={draft.end_date}
-                   onChange={e => setDraft({ ...draft, end_date: e.target.value })} />
-          </div>
-          <button className="btn btn-secondary" onClick={save}>{t('calendar.save')}</button>
-        </div>
-      ) : (
-        <button
-          onClick={() => setAdding(true)}
-          style={{
-            border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px 0',
-            fontSize: 12.5, fontWeight: 600, color: 'var(--accent)',
-          }}
-        >
-          + {t('calendar.newSemester')}
-        </button>
-      )}
+      <AnimatePresence initial={false}>
+        {adding && (
+          <motion.div key="add-semester" {...EXPAND}>
+            <div className="cm-semester-form">
+              <input className="te-input" autoFocus value={draft.name} placeholder={t('calendar.semesterPlaceholder')}
+                     onChange={e => setDraft({ ...draft, name: e.target.value })} />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input className="te-input" type="date" value={draft.start_date}
+                       onChange={e => setDraft({ ...draft, start_date: e.target.value })} />
+                <input className="te-input" type="date" value={draft.end_date}
+                       onChange={e => setDraft({ ...draft, end_date: e.target.value })} />
+              </div>
+              <div className="wc-actions" style={{ marginTop: 0 }}>
+                <GlassButton height={40} fontSize={14} style={{ flex: 1 }} onClick={() => setAdding(false)}>
+                  {t('calendar.cancel')}
+                </GlassButton>
+                <GlassButton height={40} fontSize={14} style={{ flex: 1 }} variant="primary" disabled={invalid} onClick={save}>
+                  {t('calendar.save')}
+                </GlassButton>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
-  )
-}
-
-function CloseButton({ onClose }) {
-  return (
-    <button
-      onClick={onClose}
-      aria-label="close"
-      style={{
-        position: 'absolute', top: 16, right: 16, width: 30, height: 30, borderRadius: '50%',
-        display: 'grid', placeItems: 'center', cursor: 'pointer',
-        border: 'none', background: 'var(--bg-tertiary)',
-      }}
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-           stroke="var(--text-secondary)" strokeWidth="2.4" strokeLinecap="round">
-        <path d="M6 6l12 12M18 6L6 18" />
-      </svg>
-    </button>
-  )
-}
-
-function FieldLabel({ children }) {
-  return (
-    <div style={{
-      fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)',
-      letterSpacing: 0.3, marginBottom: 6,
-    }}>{children}</div>
   )
 }

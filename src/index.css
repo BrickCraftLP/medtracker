@@ -491,34 +491,286 @@ html[data-theme="dark"] .modal-sheet {
 
 .glass-button {
   position: relative;
-  display: block;
+  display: inline-block;
+  vertical-align: middle;
   flex-shrink: 0;
 }
+.glass-button__sizer,
 .glass-button__label {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 100%;
   height: 100%;
-  padding: 0 16px;
-  border: none;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  color: var(--text-primary);
-  font-size: 15px;
+  padding: var(--glass-pad, 0 16px);
+  font-size: var(--glass-font, 15px);
   font-weight: 600;
   letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+/* Invisible in-flow copy of the label: gives content-sized buttons a width. */
+.glass-button__sizer { display: inline-flex; visibility: hidden; }
+.glass-button__label {
+  width: 100%;
+  border: none;
+  background: var(--glass-tint, rgba(255, 255, 255, 0.78));
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  color: var(--glass-ink, var(--text-primary));
   cursor: pointer;
+  transition: background 0.2s, color 0.2s;
 }
 .glass-button--round .glass-button__label {
   padding: 0;
-  color: var(--text-secondary);
+  color: var(--glass-ink, var(--text-secondary));
 }
 .glass-button--primary .glass-button__label {
-  background: color-mix(in srgb, var(--accent) 88%, transparent);
+  background: var(--glass-tint, color-mix(in srgb, var(--accent) 88%, transparent));
+  color: var(--glass-ink, #fff);
+}
+.glass-button--danger .glass-button__label {
+  background: color-mix(in srgb, var(--wrong) 86%, transparent);
   color: #fff;
+}
+
+/* Content card over a liquid-glass layer (GlassPanel.jsx) */
+.glass-panel {
+  position: relative;
+  isolation: isolate;
+}
+.glass-panel__glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.glass-panel__body {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+/* Topic edit sheet */
+.te-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 84px;
+  margin-bottom: 20px;
+  border-radius: 18px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 8px 24px rgba(0, 0, 0, 0.12);
+  transition: background 0.2s;
+}
+.te-preview span:first-child { font-size: 32px; }
+.te-preview span:last-child {
+  overflow: hidden;
+  font-size: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+.te-input {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 0.5px solid var(--border);
+  background: var(--bg-tertiary);
+  outline: none;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+.te-input::placeholder { color: var(--text-tertiary); }
+.te-input:focus { border-color: var(--pill-accent, var(--accent)); }
+.wc-pills.te-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin-bottom: 10px;
+  padding-bottom: 2px;
+}
+.te-tabs .wc-pill { flex-shrink: 0; padding: 5px 12px; font-size: 13px; }
+.te-emojis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-height: 88px;
+}
+.te-emoji,
+.te-color {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.te-emoji {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--border);
+  background: var(--bg-tertiary);
+  font-size: 19px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.te-emoji.is-active {
+  border-color: var(--pill-accent);
+  background: color-mix(in srgb, var(--pill-accent) 16%, transparent);
+}
+.te-stops {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.te-stop {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 12px;
+  text-align: left;
+}
+.te-stop.is-active {
+  border-color: var(--pill-accent);
+  background: color-mix(in srgb, var(--pill-accent) 14%, transparent);
+}
+.te-stop__dot {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+}
+.te-stop__hex { font: 11px monospace; color: var(--text-primary); }
+.te-stops__strip {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 0.5px solid var(--border-strong);
+}
+.te-palettes { margin-bottom: 12px; }
+.te-palettes .wc-chip { padding: 8px 4px; }
+.te-palette-dots {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+.te-palette-dots span { width: 8px; height: 8px; border-radius: 50%; }
+.te-colors { display: flex; flex-wrap: wrap; gap: 8px; }
+.te-color {
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.te-color.is-active { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--pill-accent); }
+
+/* Event editor sheet */
+.ee-when {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+.ee-when .te-input[type="time"] { width: 96px; }
+.ee-when .te-input { padding: 0 10px; }
+
+/* Calendar manager sheet */
+.cm-item {
+  margin-bottom: 8px;
+  border-radius: 14px;
+  border: 0.5px solid var(--border);
+  background: var(--bg-tertiary);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  overflow: hidden;
+}
+.cm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+}
+.cm-check {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 7px;
+  border: 2px solid var(--pill-accent);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cm-check.is-on { background: var(--pill-accent); }
+.cm-row__icon { font-size: 16px; }
+.cm-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  transition: opacity 0.15s;
+}
+.cm-link {
+  flex-shrink: 0;
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pill-accent, var(--accent));
+  cursor: pointer;
+}
+.cm-editor {
+  padding: 14px 14px 16px;
+  border-top: 0.5px solid var(--border);
+  background: color-mix(in srgb, var(--pill-accent) 6%, transparent);
+}
+.cm-editor .cm-link { color: var(--accent); }
+.cm-swatch { width: 32px; height: 32px; border-radius: 50%; }
+.cm-semester {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 8px 10px 8px 12px;
+  border-radius: 10px;
+  border: 0.5px solid var(--border);
+  background: var(--bg-tertiary);
+  font-size: 13px;
+}
+.cm-semester__name { flex: 1; min-width: 0; font-weight: 600; color: var(--text-primary); }
+.cm-semester__dates { font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.cm-semester__remove {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--wrong) 14%, transparent);
+  font-size: 15px;
+  line-height: 1;
+  color: var(--wrong);
+  cursor: pointer;
+}
+.cm-semester-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
 }
 .glass-button__label:disabled { opacity: 0.5; cursor: default; }
 .glass-button__label:focus-visible {

@@ -6,6 +6,9 @@ import { useData } from '../context/DataContext.jsx'
 import { useSession } from '../hooks/useSession.js'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import TopicEditModal from '../components/Modals/TopicEditModal.jsx'
+import GlassPanel from '../components/Glass/GlassPanel.jsx'
+import GlassButton from '../components/Glass/GlassButton.jsx'
+import { remeasureGlass } from '../components/Glass/constants.js'
 
 // Card dimensions match the small widget: 2 cols, 16px side padding, 12px gap
 // --nav-inset accounts for a vertical navbar rail (0 with the bottom bar).
@@ -58,26 +61,29 @@ function TopicCard({ topic, isWiggling, onPress, onLongPress }) {
         width: CARD_SIZE,
         height: CARD_SIZE,
         borderRadius: 22,
-        overflow: 'hidden',
-        background: `linear-gradient(145deg, ${topic.color_from}55 0%, ${topic.color_from}18 58%, ${topic.color_to}38 100%)`,
-        backdropFilter: 'blur(60px) saturate(200%) brightness(1.06)',
-        WebkitBackdropFilter: 'blur(60px) saturate(200%) brightness(1.06)',
-        border: isWiggling
-          ? `1px solid var(--accent)`
-          : `0.5px solid ${topic.color_from}55`,
         boxShadow: isWiggling
-          ? `0 0 0 4px var(--accent-muted), 0 4px 20px ${topic.color_from}30`
-          : `0 0 0 0.5px rgba(255,255,255,0.18) inset, 0 2px 0 rgba(255,255,255,0.28) inset, 0 4px 20px ${topic.color_from}28`,
+          ? `0 0 0 1px var(--accent), 0 0 0 5px var(--accent-muted), 0 4px 20px ${topic.color_from}30`
+          : `0 4px 20px ${topic.color_from}28`,
         cursor: 'pointer',
         position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
         flexShrink: 0,
         userSelect: 'none',
         WebkitUserSelect: 'none',
-        transition: 'border-color 0.18s, box-shadow 0.18s',
+        transition: 'box-shadow 0.18s',
       }}
     >
+      <GlassPanel
+        cornerRadius={22}
+        displacementScale={30}
+        aberrationIntensity={1}
+        tint={`linear-gradient(145deg, ${topic.color_from}55 0%, ${topic.color_from}14 58%, ${topic.color_to}38 100%)`}
+        style={{ width: '100%', height: '100%' }}
+        bodyStyle={{
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: `0 0 0 0.5px ${topic.color_from}55 inset, 0 1.5px 0 rgba(255,255,255,0.28) inset`,
+        }}
+      >
       {/* Emoji — top-left */}
       <div style={{ padding: '13px 13px 0' }}>
         <span style={{
@@ -165,6 +171,7 @@ function TopicCard({ topic, isWiggling, onPress, onLongPress }) {
       {isWiggling && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 9, cursor: 'pointer' }} />
       )}
+      </GlassPanel>
     </motion.div>
   )
 }
@@ -296,27 +303,18 @@ export default function TopicsScreen() {
           </h1>
           <AnimatePresence mode="wait">
             {!isSelectMode && isWiggling && (
-              <motion.button
+              <motion.div
                 key="done"
                 initial={{ opacity: 0, scale: 0.7 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.7 }}
                 transition={{ type: 'spring', damping: 18, stiffness: 300 }}
-                whileTap={{ scale: 0.88 }}
-                onClick={() => setIsWiggling(false)}
-                style={{
-                  background: 'var(--accent)',
-                  border: 'none',
-                  borderRadius: 10,
-                  padding: '8px 14px',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: 'white',
-                  cursor: 'pointer',
-                }}
+                onAnimationComplete={remeasureGlass}
               >
-                {t('btn.done')}
-              </motion.button>
+                <GlassButton height={36} fontSize={14} variant="primary" onClick={() => setIsWiggling(false)}>
+                  {t('btn.done')}
+                </GlassButton>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>
@@ -330,18 +328,21 @@ export default function TopicsScreen() {
               exit={{ opacity: 0, height: 0 }}
               style={{ overflow: 'hidden', marginBottom: 12 }}
             >
-              <div style={{
-                background: 'var(--accent-muted)',
-                border: '1px solid var(--accent)',
-                borderRadius: 12,
-                padding: '8px 14px',
-                fontSize: 13,
-                color: 'var(--accent)',
-                fontWeight: 500,
-                textAlign: 'center',
-              }}>
+              <GlassPanel
+                cornerRadius={12}
+                displacementScale={24}
+                tint="color-mix(in srgb, var(--accent) 16%, var(--glass-card-bg))"
+                bodyStyle={{
+                  boxShadow: '0 0 0 1px var(--accent) inset',
+                  padding: '8px 14px',
+                  fontSize: 13,
+                  color: 'var(--accent)',
+                  fontWeight: 500,
+                  textAlign: 'center',
+                }}
+              >
                 {t('topics.editHint')}
-              </div>
+              </GlassPanel>
             </motion.div>
           )}
         </AnimatePresence>
@@ -359,6 +360,7 @@ export default function TopicsScreen() {
                 dragMomentum={false}
                 dragElastic={0.12}
                 onDrag={(e, info) => handleDrag(topic, e, info)}
+                onLayoutAnimationComplete={remeasureGlass}
                 onTap={() => { if (isWiggling) setEditTopic(topic) }}
                 whileDrag={{ scale: 1.08, zIndex: 50, boxShadow: '0 24px 60px rgba(0,0,0,0.40)' }}
                 initial={{ opacity: 0, scale: 0.94 }}
@@ -394,34 +396,26 @@ export default function TopicsScreen() {
         {/* Add new topic button — only visible in wiggle mode */}
         <AnimatePresence>
           {isWiggling && (
-            <motion.button
+            <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => setShowAddTopic(true)}
-              style={{
-                width: '100%',
-                padding: '14px',
-                borderRadius: 14,
-                border: '2px dashed var(--accent)',
-                background: 'var(--accent-muted)',
-                color: 'var(--accent)',
-                fontSize: 15,
-                fontWeight: 600,
-                cursor: 'pointer',
-                marginTop: 16,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-              }}
+              onAnimationComplete={remeasureGlass}
+              style={{ marginTop: 16 }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--accent)">
-                <path d="M19 13H13v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-              {t('topics.addNew')}
-            </motion.button>
+              <GlassButton
+                height={50}
+                width="100%"
+                tint="color-mix(in srgb, var(--accent) 18%, var(--glass-card-bg))"
+                ink="var(--accent)"
+                onClick={() => setShowAddTopic(true)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--accent)">
+                  <path d="M19 13H13v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                {t('topics.addNew')}
+              </GlassButton>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>

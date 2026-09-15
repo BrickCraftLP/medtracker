@@ -4,7 +4,7 @@ import { WIDGET_COMPONENTS } from '../../Widgets/widgetRegistry.jsx'
 import { SIZES } from './constants.js'
 import { Field, ChipGrid } from './controls.jsx'
 import SheetHeader from './SheetHeader.jsx'
-import GlassButton from './GlassButton.jsx'
+import GlassButton from '../../Glass/GlassButton.jsx'
 import WidgetFields from './WidgetFields.jsx'
 import MultiDisplayFields from './MultiDisplayFields.jsx'
 

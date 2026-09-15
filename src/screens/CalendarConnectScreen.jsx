@@ -56,6 +56,15 @@ export default function CalendarConnectScreen() {
     setStep('failed')
   }
 
+  // Already connected: the explainer has nothing left to ask for, so go
+  // straight to picking calendars. Once, so Back can still reach it.
+  const skippedOverview = useRef(false)
+  useEffect(() => {
+    if (skippedOverview.current || step !== 'overview' || sync.authorized.google !== true) return
+    skippedOverview.current = true
+    handleStart()
+  }, [step, sync.authorized.google]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Preselect once the lists are known: with a single local calendar there is
   // nothing to decide, and the primary Google calendar is the expected default.
   useEffect(() => {
@@ -150,7 +159,9 @@ export default function CalendarConnectScreen() {
   function handleBack() {
     if (step === 'pick') { setStep('overview'); return }
     setDirection(-1)
-    navigate(-1)
+    // Opened fresh (reload, PWA relaunch): nothing to go back to.
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1)
+    else navigate('/settings/google/calendar', { replace: true })
   }
 
   return (

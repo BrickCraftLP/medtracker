@@ -4,7 +4,7 @@
 // Horizontal swipes here still switch app tabs (the grid below claims them for
 // paging instead) — that is the escape hatch, so keep this strip drag-free.
 
-import { motion } from 'framer-motion'
+import GlassButton from '../Glass/GlassButton.jsx'
 import ViewSwitcher from './ViewSwitcher.jsx'
 
 export default function CalendarToolbar({
@@ -15,8 +15,9 @@ export default function CalendarToolbar({
     <div style={{ padding: '18px 16px 10px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <h1 style={{
-          margin: 0, flex: 1, fontSize: 26, fontWeight: 800,
+          margin: 0, flex: 1, minWidth: 0, fontSize: 26, fontWeight: 800,
           color: 'var(--text-primary)', letterSpacing: -0.5,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {title}
         </h1>
@@ -37,20 +38,10 @@ export default function CalendarToolbar({
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <ArrowButton onClick={onPrev} dir="left" />
-        <motion.button
-          whileTap={{ scale: 0.94 }}
-          onClick={onToday}
-          className="pill tap-highlight"
-          style={{
-            border: '1px solid var(--border-strong)', background: 'var(--bg-tertiary)',
-            color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 650,
-            padding: '5px 14px', cursor: 'pointer',
-          }}
-        >
+        <GlassButton height={32} fontSize={12.5} tint="var(--glass-card-bg)" onClick={onToday}>
           {t('calendar.today')}
-        </motion.button>
+        </GlassButton>
         <ArrowButton onClick={onNext} dir="right" />
-        <div style={{ flex: 1 }} />
       </div>
 
       <ViewSwitcher value={view} onChange={onView} t={t} />
@@ -58,49 +49,34 @@ export default function CalendarToolbar({
   )
 }
 
+// The badge sits outside the glass: the glass frame clips its own content.
 function IconButton({ children, onClick, label, badge }) {
   return (
-    <motion.button
-      whileTap={{ scale: 0.9 }}
-      onClick={onClick}
-      aria-label={label}
-      style={{
-        position: 'relative', width: 34, height: 34, borderRadius: '50%',
-        display: 'grid', placeItems: 'center', cursor: 'pointer',
-        border: '0.5px solid var(--glass-card-stroke)', background: 'var(--glass-card-bg)',
-      }}
-    >
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
-           stroke="var(--text-secondary)" strokeWidth="1.8" strokeLinecap="round">
-        {children}
-      </svg>
+    <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+      <GlassButton size={36} tint="var(--glass-card-bg)" onClick={onClick} ariaLabel={label}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+             stroke="var(--text-secondary)" strokeWidth="1.8" strokeLinecap="round">
+          {children}
+        </svg>
+      </GlassButton>
       {badge > 0 && (
         <span style={{
-          position: 'absolute', top: -2, right: -2, minWidth: 15, height: 15, padding: '0 3px',
-          borderRadius: 9999, background: 'var(--accent)', color: '#fff',
+          position: 'absolute', top: -3, right: -3, zIndex: 2, minWidth: 16, height: 16, padding: '0 4px',
+          borderRadius: 9999, background: 'var(--accent)', color: '#fff', pointerEvents: 'none',
           fontSize: 9.5, fontWeight: 700, display: 'grid', placeItems: 'center',
         }}>{badge}</span>
       )}
-    </motion.button>
+    </span>
   )
 }
 
 function ArrowButton({ onClick, dir }) {
   return (
-    <motion.button
-      whileTap={{ scale: 0.9 }}
-      onClick={onClick}
-      aria-label={dir}
-      style={{
-        width: 30, height: 30, borderRadius: '50%', display: 'grid', placeItems: 'center',
-        cursor: 'pointer', border: '0.5px solid var(--glass-card-stroke)',
-        background: 'var(--glass-card-bg)',
-      }}
-    >
+    <GlassButton size={32} tint="var(--glass-card-bg)" onClick={onClick} ariaLabel={dir}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
            stroke="var(--text-secondary)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
         <path d={dir === 'left' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
       </svg>
-    </motion.button>
+    </GlassButton>
   )
 }

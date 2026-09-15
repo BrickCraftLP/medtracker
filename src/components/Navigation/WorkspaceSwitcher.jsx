@@ -1,12 +1,11 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useCircleReveal } from '../../context/circleReveal.js'
 import { useWorkspace } from '../../context/WorkspaceContext.jsx'
 import { useData } from '../../context/DataContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
-import { useNavLayout } from '../../context/NavLayoutContext.jsx'
+import NavPopover, { PopoverRow } from './NavPopover.jsx'
 
 // green = last sync succeeded (static), yellow = sync in progress (pulsing),
 // red = last sync attempt failed (pulsing).
@@ -142,88 +141,16 @@ export function WorkspaceLabel() {
   )
 }
 
-// The panel genuinely scales out of the button: it sits a fixed gap off the
-// navbar's *measured* edge, is centered on the button along the bar (the
-// button can sit anywhere once the user reorders it), and its transform origin
-// is pinned to the button's center — so growing from scale 0 to 1 reads as the
-// panel popping out of that exact point, like an iOS bubble.
-//
-// Its size is computed up front from fixed row heights instead of left to
-// content + available space, so it opens at the same size every time no
-// matter where the button sits or which workspace is active.
-const MARGIN = 16
-const GAP = 12
-const PANEL_W = 280
-const PANEL_MAX_H = 360
-const PANEL_PAD = 8
-const ROW_H = 48
-const ROW_GAP = 3
-
-const clamp = (v, min, max) => Math.max(min, Math.min(v, max))
-
-function layoutPanel(position, anchor, rowCount) {
-  if (!anchor) return null
-  const { button, nav } = anchor
-  // window.innerWidth/innerHeight is the *layout* viewport — on iOS that's
-  // taller than what's actually visible (it doesn't shrink for the browser
-  // chrome), so the panel sized itself against real estate the user can't
-  // see, rendering oversized/clipped. visualViewport tracks what's actually
-  // on screen right now.
-  const vw = window.visualViewport?.width ?? window.innerWidth
-  const vh = window.visualViewport?.height ?? window.innerHeight
-  const cx = button.left + button.width / 2
-  const cy = button.top + button.height / 2
-
-  const width = Math.min(PANEL_W, vw - MARGIN * 2)
-  const contentH = rowCount * ROW_H + Math.max(0, rowCount - 1) * ROW_GAP
-  const naturalH = Math.min(PANEL_PAD * 2 + contentH, PANEL_MAX_H, vh - MARGIN * 2)
-
-  if (position === 'left' || position === 'right') {
-    const height = naturalH
-    const top = clamp(cy - height / 2, MARGIN, vh - MARGIN - height)
-    const left = position === 'left'
-      ? Math.min(nav.right + GAP, vw - MARGIN - width)
-      : Math.max(nav.left - GAP - width, MARGIN)
-    const originY = cy - top
-    return {
-      style: { left, top },
-      width,
-      height,
-      transformOrigin: position === 'left' ? `0px ${originY}px` : `${width}px ${originY}px`,
-    }
-  }
-
-  // Bottom bar: pop upward off the bar's top edge, centered on the button,
-  // clamped to the viewport. Positioned with `top` (not `bottom`) so it lines
-  // up with the measured rect instead of an iOS viewport height guess.
-  const height = Math.min(naturalH, nav.top - GAP - MARGIN)
-  const left = clamp(cx - width / 2, MARGIN, vw - width - MARGIN)
-  const top = nav.top - GAP - height
-  return {
-    style: { left, top },
-    width,
-    height,
-    transformOrigin: `${cx - left}px ${height}px`,
-  }
-}
-
-// Slower and softer than a snappy UI spring — more like the panel is welling
-// up out of the button than popping open.
-const OPEN_SPRING = { type: 'spring', duration: 0.62, bounce: 0.3 }
-const CLOSE_TWEEN = { duration: 0.24, ease: [0.23, 1, 0.32, 1] }
-
 export default function WorkspaceSwitcher() {
   const [isOpen, setIsOpen] = useState(false)
-  const [anchor, setAnchor] = useState(null)
   const buttonRef = useRef(null)
   const navigate = useNavigate()
   const { triggerReveal } = useCircleReveal()
   const { canAddWorkspace, switchWorkspace } = useWorkspace()
   const { t } = useLanguage()
-  const { position } = useNavLayout()
   const { items, active, activeWorkspaceId } = useWorkspaceItems()
 
-  const close = () => setIsOpen(false)
+  const close = useCallback(() => setIsOpen(false), [])
 
   function select(value) {
     switchWorkspace(value)
@@ -234,38 +161,6 @@ export default function WorkspaceSwitcher() {
     close()
     triggerReveal(() => navigate(`/workspaces/${value}/edit`))
   }
-
-  // Measure the button and the bar right before the panel mounts (and again
-  // if the viewport changes while open), so the panel hugs the bar's edge and
-  // the pop animation's transform-origin lands exactly on the button.
-  useLayoutEffect(() => {
-    if (!isOpen || !buttonRef.current) return
-    function measure() {
-      const btn = buttonRef.current
-      if (!btn) return
-      const button = btn.getBoundingClientRect()
-      const nav = btn.closest('.navbar')?.getBoundingClientRect() ?? button
-      setAnchor({ button, nav })
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    window.visualViewport?.addEventListener('resize', measure)
-    return () => {
-      window.removeEventListener('resize', measure)
-      window.visualViewport?.removeEventListener('resize', measure)
-    }
-  }, [isOpen, position])
-
-  useEffect(() => {
-    if (!isOpen) return
-    function onKey(e) {
-      if (e.key === 'Escape') { e.preventDefault(); close() }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [isOpen])
-
-  const panel = layoutPanel(position, anchor, items.length + (canAddWorkspace ? 1 : 0))
 
   return (
     <>
@@ -282,12 +177,6 @@ export default function WorkspaceSwitcher() {
           position: 'relative',
         }}
       >
-        {/* A standing glass pill instead of the tabs' flat icon — it's a
-            control that opens something, not a place you navigate to, so it
-            shouldn't read as one more tab in the row. Same liquid-glass
-            recipe as the navbar itself (blur + translucent ring + inset
-            sheen), just at button scale. The chevron badge below is a
-            permanent disclosure cue, not just an open-state indicator. */}
         <motion.span
           animate={{ scale: isOpen ? [1, 1.15, 1] : 1 }}
           transition={{ duration: 0.28, ease: [0.34, 1.56, 0.64, 1] }}
@@ -307,7 +196,6 @@ export default function WorkspaceSwitcher() {
         >
           <ItemIcon icon={active.icon} size={15} />
         </motion.span>
-        {/* Status light */}
         <span style={{
           position: 'absolute', top: 3, right: 3,
           padding: 1.5, borderRadius: '50%', background: 'var(--bg-primary)',
@@ -317,127 +205,61 @@ export default function WorkspaceSwitcher() {
         </span>
       </motion.button>
 
-      {/* Portaled to <body>: .navbar sets backdrop-filter (and a transform when
-          horizontal), which makes it a containing block for fixed children — a
-          panel rendered inside it would be anchored to the bar and clipped by
-          its overflow. */}
-      {createPortal(
-        <AnimatePresence>
-          {isOpen && panel && (
-            <>
-            {/* Invisible click-catcher: tapping outside closes the panel,
-                but the screen behind stays sharp and undimmed. */}
-            <div
-              key="ws-switcher-dismiss"
-              onClick={close}
-              style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'transparent' }}
-            />
-
-            <motion.div
-              key="ws-switcher-panel"
-              initial={{ opacity: 0, scale: 0.2 }}
-              animate={{ opacity: 1, scale: 1, transition: OPEN_SPRING }}
-              exit={{ opacity: 0, scale: 0.35, transition: CLOSE_TWEEN }}
-              className="ws-switcher-glass"
-              style={{
-                position: 'fixed', zIndex: 60,
-                boxSizing: 'border-box',
-                width: panel.width,
-                height: panel.height,
-                overflowY: 'auto',
-                display: 'flex', flexDirection: 'column', gap: ROW_GAP,
-                transformOrigin: panel.transformOrigin,
-                borderRadius: 20,
-                padding: PANEL_PAD,
-                ...panel.style,
-              }}
-            >
-              {items.map(item => {
-                const isSelected = item.value === activeWorkspaceId
-                return (
-                  <motion.div
-                    key={item.value}
-                    whileTap={{ scale: 0.96 }}
-                    onClick={() => select(item.value)}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      gap: 10, padding: '0 10px', borderRadius: 12, cursor: 'pointer',
-                      boxSizing: 'border-box', height: ROW_H, flexShrink: 0,
-                      background: isSelected ? 'var(--bg-tertiary)' : 'transparent',
-                    }}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                      <span style={{
-                        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: `${item.color}26`, color: item.color,
-                      }}>
-                        <ItemIcon icon={item.icon} color={item.color} />
-                      </span>
-                      <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.label}
-                        </span>
-                        {item.detail && (
-                          <span style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.detail}
-                          </span>
-                        )}
-                      </span>
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                      {isSelected && (
-                        <motion.span
-                          initial={{ scale: 0.7, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ type: 'spring', bounce: 0.5, duration: 0.25 }}
-                          style={{ color: 'var(--accent)', display: 'flex' }}
-                        >
-                          <ItemIcon icon="check" />
-                        </motion.span>
-                      )}
+      <AnimatePresence>
+        {isOpen && (
+          <NavPopover
+            key="ws-switcher"
+            anchorRef={buttonRef}
+            rowCount={items.length + (canAddWorkspace ? 1 : 0)}
+            onClose={close}
+          >
+            {items.map(item => {
+              const isSelected = item.value === activeWorkspaceId
+              return (
+                <PopoverRow
+                  key={item.value}
+                  icon={<ItemIcon icon={item.icon} color={item.color} />}
+                  color={item.color}
+                  label={item.label}
+                  detail={item.detail}
+                  selected={isSelected}
+                  onClick={() => select(item.value)}
+                  trailing={<>
+                    {isSelected && (
                       <motion.span
-                        whileTap={{ scale: 0.85 }}
-                        onClick={(e) => { e.stopPropagation(); edit(item.value) }}
-                        title={t('workspace.edit')}
-                        style={{ display: 'flex', padding: 4, borderRadius: 6, cursor: 'pointer', color: 'var(--text-tertiary)' }}
+                        initial={{ scale: 0.7, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: 'spring', bounce: 0.5, duration: 0.25 }}
+                        style={{ color: 'var(--accent)', display: 'flex' }}
                       >
-                        <ItemIcon icon="pencil" size={13} />
+                        <ItemIcon icon="check" />
                       </motion.span>
-                    </span>
-                  </motion.div>
-                )
-              })}
+                    )}
+                    <motion.span
+                      whileTap={{ scale: 0.85 }}
+                      onClick={(e) => { e.stopPropagation(); edit(item.value) }}
+                      title={t('workspace.edit')}
+                      style={{ display: 'flex', padding: 4, borderRadius: 6, cursor: 'pointer', color: 'var(--text-tertiary)' }}
+                    >
+                      <ItemIcon icon="pencil" size={13} />
+                    </motion.span>
+                  </>}
+                />
+              )
+            })}
 
-              {canAddWorkspace && (
-                <motion.button
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => { close(); triggerReveal(() => navigate('/workspaces/new')) }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    boxSizing: 'border-box', height: ROW_H, flexShrink: 0,
-                    padding: '0 10px', borderRadius: 12, cursor: 'pointer',
-                    background: 'transparent', border: 'none', textAlign: 'left',
-                  }}
-                >
-                  <span style={{
-                    width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'var(--accent-muted)', color: 'var(--accent)',
-                  }}>
-                    <ItemIcon icon="plus" />
-                  </span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
-                    {t('workspace.add')}
-                  </span>
-                </motion.button>
-              )}
-            </motion.div>
-            </>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+            {canAddWorkspace && (
+              <PopoverRow
+                icon={<ItemIcon icon="plus" />}
+                color="var(--accent)"
+                label={t('workspace.add')}
+                labelColor="var(--accent)"
+                onClick={() => { close(); triggerReveal(() => navigate('/workspaces/new')) }}
+              />
+            )}
+          </NavPopover>
+        )}
+      </AnimatePresence>
     </>
   )
 }

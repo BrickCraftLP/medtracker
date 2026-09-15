@@ -21,6 +21,7 @@ import { motion } from 'framer-motion'
 import { format } from 'date-fns'
 import EventBlock from './EventBlock.jsx'
 import NowIndicator from './NowIndicator.jsx'
+import GlassPanel from '../Glass/GlassPanel.jsx'
 import { layoutDay } from '../../utils/calendar/eventLayout.js'
 import { nowMinutes } from '../../utils/calendar/gridGeometry.js'
 import {
@@ -321,7 +322,14 @@ export default function TimeGridView({
   const hours = Array.from({ length: 24 }, (_, i) => i)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, padding: '0 10px 10px' }}>
+    {/* One glass layer for the whole grid — never per block, so drags stay smooth. */}
+    <GlassPanel
+      cornerRadius={22}
+      displacementScale={36}
+      style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+      bodyStyle={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+    >
 
       {/* Day headers */}
       <div style={{ display: 'flex', paddingRight: 2, borderBottom: '0.5px solid var(--border)' }}>
@@ -350,7 +358,7 @@ export default function TimeGridView({
 
       {/* All-day strip — only takes space when something is in it */}
       {allDayRows > 0 && (
-        <div style={{ display: 'flex', borderBottom: '0.5px solid var(--border)', background: 'var(--bg-secondary)' }}>
+        <div style={{ display: 'flex', borderBottom: '0.5px solid var(--border)', background: 'color-mix(in srgb, var(--text-primary) 4%, transparent)' }}>
           <div style={{ width: geo.gutter, flexShrink: 0 }} />
           {days.map(d => (
             <div key={d} style={{ flex: 1, minWidth: 0, padding: '3px 2px', display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -483,6 +491,7 @@ export default function TimeGridView({
           </div>
         </div>
       </motion.div>
+    </GlassPanel>
     </div>
   )
 }

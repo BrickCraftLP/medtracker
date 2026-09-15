@@ -12,6 +12,7 @@ import {
 import { dayKey, colorOf, metaFor, withAlpha } from '../../utils/calendar/eventModel.js'
 import { ProgressUnderline } from './ProgressOutline.jsx'
 import { todoSwipeActive } from '../../utils/gestureState.js'
+import GlassPanel from '../Glass/GlassPanel.jsx'
 
 const MAX_CHIPS = 3
 
@@ -90,6 +91,7 @@ export default function MonthView({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
     >
+      <GlassPanel cornerRadius={22} displacementScale={36} bodyStyle={{ padding: '10px 5px 5px' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
         {weekdayLabels.map((label, i) => (
           <div key={i} style={{
@@ -120,7 +122,7 @@ export default function MonthView({
                   minHeight: 74, borderRadius: 10, padding: '3px 3px 4px',
                   background: inRange(key)
                     ? 'var(--accent-light)'
-                    : isSelected ? 'var(--bg-tertiary)' : 'transparent',
+                    : isSelected ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'transparent',
                   border: isSelected ? '1px solid var(--accent)' : '1px solid transparent',
                   opacity: outside ? 0.42 : 1,
                   transition: 'background 0.15s ease, border-color 0.15s ease',
@@ -174,6 +176,7 @@ export default function MonthView({
           })}
         </div>
       ))}
+      </GlassPanel>
     </div>
   )
 }

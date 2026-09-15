@@ -13,6 +13,8 @@ const DEFAULTS = {
   syncEnabled: false,
   // The "connect Google Calendar" banner on the calendar screen was dismissed.
   connectPromptDismissed: false,
+  // A synced event's todos are listed as a checklist in its Google description.
+  eventTodosInGoogle: true,
 }
 
 export function CalendarSettingsProvider({ children }) {

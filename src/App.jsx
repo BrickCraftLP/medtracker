@@ -18,6 +18,7 @@ import { GraphSettingsProvider } from './context/GraphSettingsContext.jsx'
 import { NotificationSettingsProvider } from './context/NotificationSettingsContext.jsx'
 import { NavLayoutProvider, useNavLayout } from './context/NavLayoutContext.jsx'
 import { CalendarSettingsProvider } from './context/CalendarSettingsContext.jsx'
+import { GoogleSyncProvider } from './context/GoogleSyncContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import { UpdateProvider } from './context/UpdateContext.jsx'
 import UpdateToast from './components/Common/UpdateToast.jsx'
@@ -213,12 +214,16 @@ function AppShell({ direction, setDirection, revealActive, revealReverse, onReve
   useEffect(() => { if (!dataLoading) hideBootLoader() }, [dataLoading])
   if (dataLoading) return <FirstLoadScreen />
   return (
-    <AssistantProvider>
-      <SyncIndicator />
-      <SwipeContainer direction={direction} setDirection={setDirection} />
-      <AssistantOverlay />
-      <CircleRevealOverlay active={revealActive} reverse={revealReverse} onCovered={onRevealCovered} onDone={onRevealDone} />
-    </AssistantProvider>
+    // Google sync lives above every screen, so it runs wherever the user is —
+    // not only while a calendar settings screen happens to be open.
+    <GoogleSyncProvider>
+      <AssistantProvider>
+        <SyncIndicator />
+        <SwipeContainer direction={direction} setDirection={setDirection} />
+        <AssistantOverlay />
+        <CircleRevealOverlay active={revealActive} reverse={revealReverse} onCovered={onRevealCovered} onDone={onRevealDone} />
+      </AssistantProvider>
+    </GoogleSyncProvider>
   )
 }
 
@@ -277,7 +282,7 @@ function SwipeContainer({ direction, setDirection }) {
             <Route path="/summary"     element={<PageWrapper><SessionSummaryScreen /></PageWrapper>} />
             <Route path="/settings"                    element={<PageWrapper><SettingsScreen /></PageWrapper>} />
             <Route path="/settings/data"               element={<PageWrapper><DataSettingsScreen /></PageWrapper>} />
-            <Route path="/settings/calendar"           element={<PageWrapper><CalendarSettingsScreen /></PageWrapper>} />
+            <Route path="/settings/google/:section"    element={<PageWrapper><CalendarSettingsScreen /></PageWrapper>} />
             <Route path="/settings/storage"            element={<PageWrapper><StorageSettingsScreen /></PageWrapper>} />
             <Route path="/settings/assistant"          element={<PageWrapper><AssistantSettingsScreen /></PageWrapper>} />
             <Route path="/settings/language"           element={<PageWrapper><LanguageSettingsScreen /></PageWrapper>} />

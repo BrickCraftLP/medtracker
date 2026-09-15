@@ -53,7 +53,8 @@ export default function LinkChips({ links = [], onChange, t }) {
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%',
             padding: '5px 8px 5px 10px', fontSize: 12, fontWeight: 600,
-            background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+            background: 'var(--bg-tertiary)', border: '1.5px solid var(--border)',
+            backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)',
           }}
         >
           <a
@@ -80,7 +81,7 @@ export default function LinkChips({ links = [], onChange, t }) {
 
       {adding ? (
         <input
-          className="input"
+          className="te-input"
           autoFocus
           value={value}
           placeholder={t('calendar.linkPlaceholder')}
@@ -90,7 +91,7 @@ export default function LinkChips({ links = [], onChange, t }) {
             if (e.key === 'Escape') { setValue(''); setAdding(false) }
           }}
           onBlur={add}
-          style={{ flex: '1 1 160px', padding: '6px 10px', fontSize: 13 }}
+          style={{ flex: '1 1 160px', width: 'auto', height: 36, padding: '0 10px', fontSize: 13.5 }}
         />
       ) : (
         <button

@@ -177,7 +177,7 @@ function AddRow({ value, onChange, onSubmit, onCancel, indent, placeholder }) {
   return (
     <div style={{ display: 'flex', gap: 6, paddingLeft: indent, marginBottom: 6 }}>
       <input
-        className="input"
+        className="te-input"
         autoFocus
         value={value}
         placeholder={placeholder}
@@ -187,7 +187,7 @@ function AddRow({ value, onChange, onSubmit, onCancel, indent, placeholder }) {
           if (e.key === 'Escape') onCancel()
         }}
         onBlur={() => { if (!value.trim()) onCancel() }}
-        style={{ flex: 1, padding: '6px 10px', fontSize: 13 }}
+        style={{ flex: 1, height: 36, padding: '0 10px', fontSize: 13.5 }}
       />
     </div>
   )

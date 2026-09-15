@@ -1,16 +1,20 @@
-// Segmented Day / 3 / Week / Month / List control. The selected pill is a
-// shared layoutId so it slides between segments instead of blinking.
+// Segmented Day / 3 / Week / Month / List control on a liquid-glass track.
+// The selected pill is a shared layoutId so it slides between segments
+// instead of blinking.
 
 import { motion } from 'framer-motion'
+import GlassPanel from '../Glass/GlassPanel.jsx'
 
 export const VIEWS = ['day', 'three', 'week', 'month', 'agenda']
 
 export default function ViewSwitcher({ value, onChange, t }) {
   return (
-    <div style={{
-      display: 'flex', gap: 2, padding: 2, borderRadius: 9999,
-      background: 'var(--bg-tertiary)',
-    }}>
+    <GlassPanel
+      cornerRadius={18}
+      displacementScale={26}
+      aberrationIntensity={1}
+      bodyStyle={{ display: 'flex', gap: 2, padding: 3 }}
+    >
       {VIEWS.map(view => {
         const active = view === value
         return (
@@ -19,9 +23,10 @@ export default function ViewSwitcher({ value, onChange, t }) {
             onClick={() => onChange(view)}
             style={{
               position: 'relative', flex: 1, border: 'none', background: 'transparent',
-              cursor: 'pointer', padding: '5px 0', borderRadius: 9999,
+              cursor: 'pointer', padding: '6px 0', borderRadius: 9999,
               fontSize: 11.5, fontWeight: 650, letterSpacing: -0.1,
               color: active ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              transition: 'color 0.18s',
             }}
           >
             {active && (
@@ -30,7 +35,8 @@ export default function ViewSwitcher({ value, onChange, t }) {
                 transition={{ type: 'spring', damping: 30, stiffness: 380 }}
                 style={{
                   position: 'absolute', inset: 0, borderRadius: 9999,
-                  background: 'var(--card-bg)', boxShadow: 'var(--shadow)',
+                  background: 'color-mix(in srgb, var(--card-bg) 82%, transparent)',
+                  boxShadow: '0 1px 0 rgba(255,255,255,0.35) inset, var(--shadow)',
                 }}
               />
             )}
@@ -38,6 +44,6 @@ export default function ViewSwitcher({ value, onChange, t }) {
           </button>
         )
       })}
-    </div>
+    </GlassPanel>
   )
 }

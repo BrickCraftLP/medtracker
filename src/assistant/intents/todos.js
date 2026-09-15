@@ -32,6 +32,8 @@ const TODO_STOP = [
   'my', 'list', 'liste', 'meine', 'meinen', 'meiner', 'meinem', 'mein', 'zur', 'zu', 'in', 'ins', 'auf', 'die', 'das', 'den', 'der', 'dem',
   'please', 'bitte', 'by', 'bis', 'until', 'due', 'faellig', 'on', 'am', 'for', 'fuer', 'called', 'namens', 'noch', 'mal', 'kannst', 'du',
   'can', 'could', 'you', 'hey', 'hi', 'ok', 'okay', 'wichtig', 'wichtiges', 'wichtige', 'dringend', 'dringendes', 'dringende', 'urgent', 'important',
+  'priority', 'prioritaet', 'prioritaeten', 'hoch', 'hohe', 'hohen', 'hohes', 'high', 'mittel', 'mittlere', 'mittleren', 'medium',
+  'niedrig', 'niedrige', 'niedrigen', 'niedriges', 'low', 'unwichtig', 'unwichtige', 'unwichtiges', 'keine', 'ohne',
 ]
 
 function priorityOf(text) {

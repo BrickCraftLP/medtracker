@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import LiquidSheet from './LiquidSheet.jsx'
+import LiquidSheet from '../../Glass/LiquidSheet.jsx'
 import TypeStep from './TypeStep.jsx'
 import ConfigStep from './ConfigStep.jsx'
 

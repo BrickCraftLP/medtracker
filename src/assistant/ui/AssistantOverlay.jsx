@@ -48,6 +48,7 @@ export default function AssistantOverlay() {
   const hintOpacity = useTransform(pull, [0, OPEN_AT], [0, 1])
   const hintY = useTransform(pull, v => Math.min(v, OPEN_AT * 1.4) * 0.6 - 56)
   const [pulling, setPulling] = useState(false)
+  const kbRelayRef = useRef(null)
 
   // ── Top-edge pull ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -89,6 +90,13 @@ export default function AssistantOverlay() {
       setPulling(false)
       if (shouldOpen) {
         navigator.vibrate?.(8)
+        // Focus a dummy input synchronously, inside the trusted touchend
+        // gesture, so the keyboard opens right away — iOS/Android refuse
+        // programmatic focus() once we're a render (or a setTimeout) removed
+        // from the user gesture that triggered it. The real input takes over
+        // focus once the panel mounts, and the keyboard stays open through
+        // the handoff.
+        kbRelayRef.current?.focus()
         a.openAssistant()
       }
     }
@@ -119,6 +127,14 @@ export default function AssistantOverlay() {
 
   return createPortal(
     <>
+      {/* Invisible focus relay: see the comment in onEnd above. */}
+      <input
+        ref={kbRelayRef}
+        aria-hidden
+        tabIndex={-1}
+        style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, border: 'none', padding: 0, pointerEvents: 'none' }}
+      />
+
       {/* Pull hint: a ghost pill that follows the finger before it opens. */}
       {pulling && !a.open && (
         <motion.div style={{ ...wrap, opacity: hintOpacity, y: hintY, pointerEvents: 'none' }}>
@@ -180,7 +196,7 @@ function Panel() {
     ? top.value.slice(value.length)
     : ''
 
-  useEffect(() => { const id = setTimeout(() => inputRef.current?.focus(), 180); return () => clearTimeout(id) }, [])
+  useEffect(() => { const id = setTimeout(() => inputRef.current?.focus(), 30); return () => clearTimeout(id) }, [])
   // Bring the newest question to the top of the thread: on a new question and
   // again when its answer lands.
   useEffect(() => {
@@ -236,7 +252,7 @@ function Panel() {
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={a.close}
-        style={{ position: 'fixed', inset: 0, zIndex: 290, background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 290, background: 'rgba(0,0,0,0.28)' }}
       />
       <div style={{ ...wrap, top: topInset, zIndex: 300 }}>
         <motion.div

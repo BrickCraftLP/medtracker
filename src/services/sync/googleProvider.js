@@ -23,11 +23,10 @@ export default defineProvider({
 
   disconnect: signOut,
 
-  async listRemoteCalendars() {
-    // Reuse an existing grant if there is one; only prompt when there is not.
-    try { await getAccessToken({ interactive: false }) } catch { await getAccessToken({ interactive: true }) }
-    return listCalendars()
-  },
+  // Never prompts: the list is loaded outside clicks, where a popup would be
+  // blocked. Without a grant this throws NotSignedIn and the screen offers
+  // Connect instead.
+  listRemoteCalendars: listCalendars,
 
   sync: syncCalendar,
   noteLocalDelete,
