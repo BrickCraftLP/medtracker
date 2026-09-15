@@ -1,14 +1,10 @@
 import { motion } from 'framer-motion'
-import LiquidGlass from 'liquid-glass-react'
-import { GLASS_CENTERED } from './constants.js'
+import LiquidPanel from '../../Glass/LiquidPanel.jsx'
+import { remeasureGlass } from '../../Glass/glassConfig.js'
 
-// liquid-glass-react measures its glass only on mount and on window resize.
-// Mount happens mid-entrance (scaled down), so re-measure once it settles.
-const remeasureGlass = () => window.dispatchEvent(new Event('resize'))
-
-// Centered modal sheet made of real refracting liquid glass. The sheet has a
-// fixed size (see .liquid-sheet) and scrolls its content internally, so the
-// measured glass never goes stale while sections expand or steps change.
+// Centered modal sheet made of liquid glass. It has a fixed size (see
+// .liquid-sheet) and scrolls its content internally. The glass mounts while
+// the entrance animation is still scaled down, so it re-measures once settled.
 export default function LiquidSheet({ onClose, children }) {
   return (
     <div className="modal-overlay liquid-overlay" onClick={onClose}>
@@ -21,19 +17,9 @@ export default function LiquidSheet({ onClose, children }) {
         onAnimationComplete={remeasureGlass}
         onClick={e => e.stopPropagation()}
       >
-        <LiquidGlass
-          className="liquid-fill"
-          style={GLASS_CENTERED}
-          cornerRadius={26}
-          padding="0"
-          displacementScale={70}
-          blurAmount={0.5}
-          saturation={140}
-          aberrationIntensity={2}
-          elasticity={0}
-        >
+        <LiquidPanel radius={26}>
           <div className="liquid-sheet__body">{children}</div>
-        </LiquidGlass>
+        </LiquidPanel>
       </motion.div>
     </div>
   )

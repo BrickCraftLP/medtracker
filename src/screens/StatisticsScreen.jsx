@@ -15,6 +15,9 @@ import {
 } from '../utils/calculations/filterTimeframeCalcs.js'
 import { calcTopicAccuracy, calcWeightedAccuracy, calcOverallAccuracy, calcRunningOverallAccuracy, calcRunningWeightedAccuracy, fmtPct } from '../utils/calculations/accuracyRatioCalcs.js'
 import { calcCurrentStreak } from '../utils/calculations/streakTrackerCalcs.js'
+import GlassCard from '../components/Glass/GlassCard.jsx'
+import GlassButton from '../components/Modals/WidgetConfig/GlassButton.jsx'
+import { remeasureGlass } from '../components/Glass/glassConfig.js'
 
 const TOPIC_COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#ef4444', '#14b8a6']
 
@@ -24,19 +27,18 @@ function HeroCard({ label, value, sub, color = 'var(--accent)', delay = 0 }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.22 }}
-      style={{
-        background: 'var(--card-bg)',
-        borderRadius: 18,
-        padding: '16px 14px',
-        border: '1px solid var(--border)',
-        flex: 1,
-      }}
+      onAnimationComplete={remeasureGlass}
+      style={{ flex: 1, minWidth: 0 }}
     >
-      <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: 0.4, marginBottom: 6 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 30, fontWeight: 800, color, lineHeight: 1, letterSpacing: -1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>{sub}</div>}
+      <GlassCard radius={18}>
+        <div style={{ padding: '16px 14px' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: 0.4, marginBottom: 6 }}>
+            {label}
+          </div>
+          <div style={{ fontSize: 30, fontWeight: 800, color, lineHeight: 1, letterSpacing: -1 }}>{value}</div>
+          {sub && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>{sub}</div>}
+        </div>
+      </GlassCard>
     </motion.div>
   )
 }
@@ -51,19 +53,14 @@ function SectionTitle({ children }) {
 
 function ChartCard({ title, children, style }) {
   return (
-    <div style={{
-      background: 'var(--card-bg)',
-      borderRadius: 18,
-      padding: '14px 14px 10px',
-      border: '1px solid var(--border)',
-      marginBottom: 12,
-      ...style,
-    }}>
-      {title && (
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10 }}>{title}</div>
-      )}
-      {children}
-    </div>
+    <GlassCard radius={18} style={{ marginBottom: 12, ...style }}>
+      <div style={{ padding: '14px 14px 10px' }}>
+        {title && (
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10 }}>{title}</div>
+        )}
+        {children}
+      </div>
+    </GlassCard>
   )
 }
 
@@ -169,7 +166,7 @@ export default function StatisticsScreen() {
         </h1>
 
         {/* Timeframe pills */}
-        <div style={{
+        <div className="stats-timeframe" style={{
           display: 'flex',
           gap: 6,
           overflowX: 'auto',
@@ -178,25 +175,14 @@ export default function StatisticsScreen() {
           WebkitOverflowScrolling: 'touch',
         }}>
           {TIMEFRAME_OPTIONS.map(o => (
-            <motion.button
+            <GlassButton
               key={o.value}
-              whileTap={{ scale: 0.92 }}
+              height={34}
+              variant={timeframe === o.value ? 'primary' : undefined}
               onClick={() => setTimeframe(o.value)}
-              style={{
-                padding: '8px 14px',
-                borderRadius: 20,
-                border: 'none',
-                background: timeframe === o.value ? 'var(--accent)' : 'var(--bg-tertiary)',
-                color: timeframe === o.value ? 'white' : 'var(--text-secondary)',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-                flexShrink: 0,
-                whiteSpace: 'nowrap',
-              }}
             >
               {t(`timeframe.${o.value}`)}
-            </motion.button>
+            </GlassButton>
           ))}
         </div>
 
@@ -311,13 +297,8 @@ export default function StatisticsScreen() {
         {topicAccuracy.length > 0 && (
           <>
             <SectionTitle style={{ marginTop: 4 }}>{t('stats.perTopic')}</SectionTitle>
-            <div style={{
-              background: 'var(--card-bg)',
-              borderRadius: 18,
-              padding: '14px',
-              border: '1px solid var(--border)',
-              marginBottom: 12,
-            }}>
+            <GlassCard radius={18} style={{ marginBottom: 12 }}>
+            <div style={{ padding: '14px' }}>
               {topicAccuracy
                 .sort((a, b) => b.accuracy - a.accuracy)
                 .map((row, i) => {
@@ -349,6 +330,7 @@ export default function StatisticsScreen() {
                   )
                 })}
             </div>
+            </GlassCard>
           </>
         )}
 
@@ -356,13 +338,8 @@ export default function StatisticsScreen() {
         {topicAccuracy.length > 0 && (
           <>
             <SectionTitle style={{ marginTop: 4 }}>{t('stats.weightedAvg')}</SectionTitle>
-            <div style={{
-              background: 'var(--card-bg)',
-              borderRadius: 18,
-              padding: '14px',
-              border: '1px solid var(--border)',
-              marginBottom: 12,
-            }}>
+            <GlassCard radius={18} style={{ marginBottom: 12 }}>
+            <div style={{ padding: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingBottom: 12, borderBottom: '0.5px solid var(--border)' }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: 0.3 }}>{t('stats.weightedAvgHint')}</span>
                 <span style={{ fontSize: 22, fontWeight: 800, color: weightedAccColor }}>{fmtPct(weightedAccuracy)}</span>
@@ -399,6 +376,7 @@ export default function StatisticsScreen() {
                   )
                 })}
             </div>
+            </GlassCard>
           </>
         )}
 

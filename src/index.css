@@ -439,10 +439,11 @@ html[data-theme="dark"] .modal-sheet {
   text-shadow: none !important;
 }
 
-/* ─── Widget settings sheet ──────────────────────────────── */
-.liquid-sheet {
+/* ─── Liquid panel — shared by widgets and the widget settings sheet ── */
+.liquid-panel,
+.liquid-scope {
   /* Own white-glass palette in every theme — independent of the app's glass
-     tokens, so the sheet always reads like the liquid-glass-react demo. */
+     tokens, so every panel reads like the liquid-glass-react demo. */
   --liquid-tint:    rgba(255, 255, 255, 0.28);
   --text-primary:   #111114;
   --text-secondary: rgba(20, 20, 26, 0.78);
@@ -456,15 +457,115 @@ html[data-theme="dark"] .modal-sheet {
   --glass-card-bg:     rgba(255, 255, 255, 0.8);
   --glass-card-stroke: rgba(255, 255, 255, 0.9);
   --glass-card-shadow: none;
+  color-scheme: light;
+  color: var(--text-primary);
+}
+.liquid-panel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* Extra blur scoped to the panel itself (not the whole app background) —
+     stacks with the liquid glass's own blur/displacement. */
+  border-radius: var(--panel-radius);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+/* Dark theme: smoked glass with light text. */
+html[data-theme="dark"] .liquid-panel,
+html[data-theme="dark"] .liquid-scope {
+  --liquid-tint:    rgba(24, 24, 28, 0.38);
+  --text-primary:   #F5F5F7;
+  --text-secondary: rgba(235, 235, 245, 0.72);
+  --text-tertiary:  rgba(235, 235, 245, 0.46);
+  --bg-primary:     rgba(28, 28, 32, 0.92);
+  --bg-secondary:   rgba(58, 58, 64, 0.72);
+  --bg-tertiary:    rgba(58, 58, 64, 0.62);
+  --card-bg:        rgba(44, 44, 50, 0.78);
+  --border:         rgba(255, 255, 255, 0.14);
+  --border-strong:  rgba(255, 255, 255, 0.24);
+  --glass-card-bg:     rgba(50, 50, 56, 0.7);
+  --glass-card-stroke: rgba(255, 255, 255, 0.16);
+  color-scheme: dark;
+}
+.liquid-panel__body {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: var(--liquid-tint);
+}
+
+/* ─── Content-sized glass card (GlassCard) ───────────────── */
+.glass-card-frame { position: relative; }
+.glass-card-frame__glass {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.glass-card-frame__content { position: relative; }
+
+/* Statistics timeframe pills */
+.stats-timeframe .glass-button__label {
+  padding: 0 14px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* ─── Widget settings sheet ──────────────────────────────── */
+.liquid-sheet {
   position: relative;
   width: min(440px, 100%);
   height: min(82vh, 680px);
-  color-scheme: light;
-  /* Extra blur scoped to the card itself (not the whole app background) —
-     stacks with the liquid glass's own blur/displacement. */
-  border-radius: 26px;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+}
+
+/* ─── Dashboard widget card ──────────────────────────────── */
+.widget-shell {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 22px;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.widget-shell.is-wiggling { cursor: pointer; }
+.widget-shell__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  cursor: pointer;
+}
+.widget-shell__badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0.5px solid var(--border-strong);
+  background: var(--bg-secondary);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow);
+}
+.widget-shell__grip {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5px;
+  padding: 4px;
+  pointer-events: none;
+}
+.widget-shell__grip span {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text-tertiary);
 }
 
 /* No dimming or blur behind the sheet — the glass itself does the work. */
@@ -480,7 +581,6 @@ html[data-theme="dark"] .modal-sheet {
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  background: var(--liquid-tint);
 }
 .liquid-sheet__body::-webkit-scrollbar { width: 3px; }
 .liquid-sheet__body::-webkit-scrollbar-track { background: transparent; }
@@ -516,9 +616,18 @@ html[data-theme="dark"] .modal-sheet {
   padding: 0;
   color: var(--text-secondary);
 }
+html[data-theme="dark"] .glass-button:not(.glass-button--primary) .glass-button__label {
+  background: rgba(58, 58, 64, 0.72);
+}
 .glass-button--primary .glass-button__label {
   background: color-mix(in srgb, var(--accent) 88%, transparent);
   color: #fff;
+}
+.glass-button__sizer {
+  width: auto;
+  visibility: hidden;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .glass-button__label:disabled { opacity: 0.5; cursor: default; }
 .glass-button__label:focus-visible {

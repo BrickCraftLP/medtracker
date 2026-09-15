@@ -68,12 +68,6 @@ export default function HeatmapIntensityWidget({ config = {}, size }) {
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
-      borderRadius: 22,
-      background: 'var(--glass-card-bg)',
-      backdropFilter: 'blur(60px) saturate(200%) brightness(1.06)',
-      WebkitBackdropFilter: 'blur(60px) saturate(200%) brightness(1.06)',
-      border: '0.5px solid var(--glass-card-stroke)',
-      boxShadow: 'var(--glass-card-shadow)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, minWidth: 0 }}>
         <div style={{

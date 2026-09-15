@@ -14,6 +14,8 @@ import { suggest } from '../engine/suggest.js'
 import { fold } from '../engine/normalize.js'
 import ResultBlocks from './blocks.jsx'
 import FlowComposer, { flowPlaceholder, enterLabel } from './FlowComposer.jsx'
+import LiquidPanel from '../../components/Glass/LiquidPanel.jsx'
+import { remeasureGlass } from '../../components/Glass/glassConfig.js'
 
 const EventEditorModal = lazy(() => import('../../components/Modals/EventEditorModal.jsx'))
 
@@ -122,8 +124,9 @@ export default function AssistantOverlay() {
       {/* Pull hint: a ghost pill that follows the finger before it opens. */}
       {pulling && !a.open && (
         <motion.div style={{ ...wrap, opacity: hintOpacity, y: hintY, pointerEvents: 'none' }}>
-          <div style={{ ...pillShell, maxWidth: 220, justifyContent: 'center', padding: '10px 16px', color: 'var(--text-secondary)', fontSize: 14 }}>
-            <Sparkle /> {t('assistant.pullHint')}
+          <div className="liquid-scope" style={{ ...pillShell, maxWidth: 220, justifyContent: 'center', padding: '10px 16px', color: 'var(--text-secondary)', fontSize: 14, borderRadius: 22 }}>
+            <GlassLayer radius={22} />
+            <span style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}><Sparkle /> {t('assistant.pullHint')}</span>
           </div>
         </motion.div>
       )}
@@ -230,17 +233,20 @@ function Panel() {
   // DOM order stays fixed (so the input never remounts and keeps focus); CSS
   // `order` moves the input below the thread once a chat has started.
   const order = hasThread ? { handle: 0, thread: 1, chips: 2, form: 3 } : { handle: 0, thread: 3, chips: 2, form: 1 }
+  // Round pill ≈ half its height; the glass displacement map breaks on 999.
+  const radius = hasThread || chips.length ? 26 : 28
 
   return (
     <>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={a.close}
-        style={{ position: 'fixed', inset: 0, zIndex: 290, background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 290, background: 'rgba(0,0,0,0.28)' }}
       />
       <div style={{ ...wrap, top: topInset, zIndex: 300 }}>
+        {/* No `layout` here: its scale transforms fool the glass measuring
+            (getBoundingClientRect) and leave a stale inner glass outline. */}
         <motion.div
-          layout
           initial={{ y: -80, opacity: 0, scale: 0.9 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: -80, opacity: 0, scale: 0.9 }}
@@ -250,18 +256,22 @@ function Panel() {
           dragElastic={{ top: 0.5, bottom: 0.05 }}
           dragListener={!hasThread}
           onDragEnd={(_, info) => { if (info.offset.y < -50 || info.velocity.y < -500) a.close() }}
+          onAnimationComplete={remeasureGlass}
+          className="liquid-scope"
           style={{
             ...pillShell,
             flexDirection: 'column', alignItems: 'stretch', padding: 0,
-            borderRadius: hasThread || chips.length ? 26 : 999,
+            borderRadius: radius,
             ...(hasThread
               ? { height: `calc(${vv.height}px - max(env(safe-area-inset-top, 0px), 10px) - 8px - max(env(safe-area-inset-bottom, 0px), 12px))` }
               : { maxHeight: `calc(${vv.height}px - max(env(safe-area-inset-top, 0px), 12px) - 110px)` }),
             pointerEvents: 'auto',
           }}
         >
+          <GlassLayer radius={radius} />
+
           {hasThread && (
-            <div style={{ order: order.handle }}>
+            <div style={{ order: order.handle, position: 'relative' }}>
               <GrabHandle onClose={a.close} onNewChat={a.newChat} label={t('assistant.newChat')} />
             </div>
           )}
@@ -270,7 +280,7 @@ function Panel() {
             layout="position"
             onSubmit={e => { e.preventDefault(); submit() }}
             style={{
-              order: order.form, flexShrink: 0,
+              order: order.form, flexShrink: 0, position: 'relative',
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '8px 8px 8px 16px',
               ...(hasThread ? { borderTop: '0.5px solid var(--border)' } : null),
@@ -315,7 +325,7 @@ function Panel() {
                 key="suggest"
                 layout="position"
                 initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                style={{ order: order.chips, flexShrink: 0, display: 'flex', gap: 6, padding: hasThread ? '8px 12px 2px' : '0 12px 10px', overflowX: 'auto', scrollbarWidth: 'none', ...(hasThread ? { borderTop: '0.5px solid var(--border)' } : null) }}
+                style={{ order: order.chips, flexShrink: 0, position: 'relative', display: 'flex', gap: 6, padding: hasThread ? '8px 12px 2px' : '0 12px 10px', overflowX: 'auto', scrollbarWidth: 'none', ...(hasThread ? { borderTop: '0.5px solid var(--border)' } : null) }}
               >
                 {chips.map(s => (
                   <Chip key={s.value} onClick={() => pick(s)}>
@@ -328,7 +338,7 @@ function Panel() {
 
           {/* Guided creation: selectors for the current step, right above the input. */}
           {a.flow && (
-            <div style={{ order: order.chips, flexShrink: 0, borderTop: '0.5px solid var(--border)' }}>
+            <div style={{ order: order.chips, flexShrink: 0, position: 'relative', borderTop: '0.5px solid var(--border)' }}>
               <FlowComposer />
             </div>
           )}
@@ -510,6 +520,15 @@ function GrabHandle({ onClose, onNewChat, label }) {
   )
 }
 
+// Liquid glass behind the pill's content (same layer as GlassCard).
+function GlassLayer({ radius }) {
+  return (
+    <div className="glass-card-frame__glass" aria-hidden="true">
+      <LiquidPanel radius={radius} />
+    </div>
+  )
+}
+
 function Sparkle({ animate: spin = false }) {
   return (
     <motion.svg
@@ -556,10 +575,8 @@ const wrap = {
 
 const pillShell = {
   display: 'flex', alignItems: 'center', gap: 8,
+  position: 'relative',
   width: '100%', maxWidth: 520,
-  background: 'var(--glass-sheet-bg, var(--card-bg))',
-  backdropFilter: 'blur(40px) saturate(200%)', WebkitBackdropFilter: 'blur(40px) saturate(200%)',
-  border: '0.5px solid var(--glass-card-stroke, var(--border))',
   boxShadow: '0 12px 40px rgba(0,0,0,0.22), 0 0 0 0.5px rgba(255,255,255,0.15) inset',
   overflow: 'hidden',
 }

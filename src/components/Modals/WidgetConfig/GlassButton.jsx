@@ -1,5 +1,5 @@
 import LiquidGlass from 'liquid-glass-react'
-import { GLASS_CENTERED } from './constants.js'
+import { GLASS_CENTERED } from '../../Glass/glassConfig.js'
 
 const noop = () => {}
 
@@ -14,6 +14,10 @@ export default function GlassButton({ children, onClick, size, height = size ?? 
 
   return (
     <span className={className} style={{ width, height, ...style }}>
+      {/* Without a width, an invisible in-flow copy of the label sizes the button. */}
+      {width == null && (
+        <span className="glass-button__label glass-button__sizer" aria-hidden="true">{children}</span>
+      )}
       <LiquidGlass
         className="liquid-fill"
         style={GLASS_CENTERED}
