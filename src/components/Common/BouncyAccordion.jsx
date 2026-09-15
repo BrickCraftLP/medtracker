@@ -1,5 +1,7 @@
-import { useState, useRef, useLayoutEffect, useId, useCallback } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useId, useCallback } from 'react'
+import { flushSync } from 'react-dom'
 import { motion, useReducedMotion } from 'framer-motion'
+import LiquidPanel from '../Glass/LiquidPanel.jsx'
 
 // ── Spring transitions, ported verbatim from the bouncy-accordion showcase ──
 const EASE_OUT = [0.16, 1, 0.3, 1]
@@ -16,7 +18,9 @@ const CHEVRON_TRANSITION = { type: 'spring', duration: 0.65, bounce: 0.14 }
 // draw a border/shadow on that edge — a row fused on BOTH sides carries no
 // border or shadow at all, just the matching background, so it blends
 // invisibly between its neighbors instead of drawing a hairline against them.
-function AccordionRow({ item, open, startsGroup, endsGroup, separatedFromPrevious, contentId, triggerId, reduce, onToggle }) {
+// The glass itself is not drawn per row: BouncyAccordion lays one liquid
+// glass layer behind each fused run, so fused rows show no refraction seams.
+function AccordionRow({ item, open, startsGroup, endsGroup, separatedFromPrevious, contentId, triggerId, reduce, onToggle, cardRef, glass }) {
   const contentRef = useRef(null)
   const [contentHeight, setContentHeight] = useState(0)
 
@@ -39,8 +43,6 @@ function AccordionRow({ item, open, startsGroup, endsGroup, separatedFromPreviou
   // full height of the block, so they never create a horizontal seam). The
   // ambient shadow only appears on a row that's free on BOTH edges — i.e.
   // truly standalone, like the open row — so it never bleeds across a fused edge.
-  const isolated = startsGroup && endsGroup
-
   return (
     <motion.div
       initial={false}
@@ -48,6 +50,7 @@ function AccordionRow({ item, open, startsGroup, endsGroup, separatedFromPreviou
       transition={reduce ? { duration: 0 } : CONTENT_OPEN_TRANSITION}
     >
       <motion.div
+        ref={cardRef}
         data-state={open ? 'open' : 'closed'}
         initial={false}
         animate={{
@@ -57,16 +60,13 @@ function AccordionRow({ item, open, startsGroup, endsGroup, separatedFromPreviou
           borderBottomRightRadius: endsGroup ? 16 : 0,
         }}
         transition={reduce ? { duration: 0 } : CONTENT_OPEN_TRANSITION}
-        style={{
+        style={glass ? { position: 'relative', overflow: 'hidden' } : {
           overflow: 'hidden',
           background: 'var(--glass-card-bg)',
-          backdropFilter: 'blur(60px) saturate(200%)',
-          WebkitBackdropFilter: 'blur(60px) saturate(200%)',
           borderLeft: '0.5px solid var(--glass-card-stroke)',
           borderRight: '0.5px solid var(--glass-card-stroke)',
           borderTop: startsGroup ? '0.5px solid var(--glass-card-stroke)' : 'none',
           borderBottom: endsGroup ? '0.5px solid var(--glass-card-stroke)' : 'none',
-          boxShadow: isolated ? 'var(--glass-card-shadow)' : 'none',
         }}
       >
         <button
@@ -137,18 +137,89 @@ function AccordionRow({ item, open, startsGroup, endsGroup, separatedFromPreviou
 }
 
 // items: [{ id, title, summary?, icon, badge?, content }] · value: open id or null
-export default function BouncyAccordion({ items, value, onValueChange }) {
+// glass={false}: flat tinted rows, for use inside an existing glass surface.
+export default function BouncyAccordion({ items, value, onValueChange, glass = true }) {
   const reduce = useReducedMotion()
   const baseId = useId()
   const activeIndex = items.findIndex((item) => item.id === value)
+  const rootRef = useRef(null)
+  const cardRefs = useRef([])
+  const layerRefs = useRef([])
 
   const toggleItem = useCallback(
     (id) => onValueChange(value === id ? null : id),
     [value, onValueChange]
   )
 
+  // Fused runs are found from the real gaps between rows (not from the open
+  // state), so groups split and merge exactly when the margin spring does.
+  // Sizes go straight to the DOM and the glass re-measures in the same frame —
+  // a React state + rAF round trip lags a frame and makes the edges jitter.
+  // offsetTop/offsetHeight ignore transforms, so springs measure true layout.
+  const measure = useCallback((sync = true) => {
+    const groups = []
+    for (let i = 0; i < items.length; i++) {
+      const card = cardRefs.current[i]
+      if (!card) continue
+      const top = card.offsetTop
+      const bottom = top + card.offsetHeight
+      const last = groups[groups.length - 1]
+      if (last && top - last.bottom < 1) last.bottom = bottom
+      else groups.push({ top, bottom })
+    }
+    let changed = false
+    layerRefs.current.forEach((layer, i) => {
+      if (!layer) return
+      const g = groups[i]
+      const top = g ? `${g.top}px` : '0px'
+      const height = g ? `${g.bottom - g.top}px` : '0px'
+      const visibility = g ? 'visible' : 'hidden'
+      if (layer.style.top === top && layer.style.height === height && layer.style.visibility === visibility) return
+      Object.assign(layer.style, { top, height, visibility })
+      changed = true
+    })
+    // flushSync: the library's size state must commit before this frame
+    // paints, or the edge lines flicker at the previous size.
+    // (Not allowed inside a React commit, so the layout effect passes false.)
+    if (!changed) return
+    const announce = () => window.dispatchEvent(new Event('resize'))
+    if (sync) flushSync(announce)
+    else announce()
+  }, [items.length])
+
+  useLayoutEffect(() => {
+    if (!glass) return
+    measure(false)
+    const observer = new ResizeObserver(() => measure())
+    observer.observe(rootRef.current)
+    return () => observer.disconnect()
+  }, [measure, glass])
+
+  // Follow the glass along with the open/close springs.
+  useEffect(() => {
+    if (!glass || reduce) return
+    const end = performance.now() + 1100
+    let frame = requestAnimationFrame(function tick(now) {
+      measure()
+      if (now < end) frame = requestAnimationFrame(tick)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [value, reduce, measure, glass])
+
   return (
-    <div style={{ width: '100%' }}>
+    <div ref={rootRef} className={glass ? 'liquid-scope' : undefined} style={{ width: '100%', position: 'relative' }}>
+      {/* At most 3 runs (before / open / after); all stay mounted so no glass
+          mounts mid-animation at the library's default size. */}
+      {glass && [0, 1, 2].map(i => (
+        <div
+          key={i}
+          ref={el => { layerRefs.current[i] = el }}
+          aria-hidden="true"
+          style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 0, visibility: 'hidden', borderRadius: 16, boxShadow: 'var(--glass-card-shadow)', pointerEvents: 'none' }}
+        >
+          <LiquidPanel radius={16} className="liquid-panel--instant" />
+        </div>
+      ))}
       {items.map((item, index) => {
         const open = value === item.id
         const previousIsOpen = activeIndex === index - 1
@@ -169,6 +240,8 @@ export default function BouncyAccordion({ items, value, onValueChange }) {
             triggerId={`${baseId}-${item.id}-trigger`}
             reduce={reduce}
             onToggle={() => toggleItem(item.id)}
+            cardRef={el => { cardRefs.current[index] = el }}
+            glass={glass}
           />
         )
       })}

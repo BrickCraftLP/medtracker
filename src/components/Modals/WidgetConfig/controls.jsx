@@ -26,6 +26,7 @@ export function SettingsAccordion({ label, items, open, onOpenChange, defaultOpe
   return (
     <Field label={label}>
       <BouncyAccordion
+        glass={false}
         items={items}
         value={open === undefined ? innerOpen : open}
         onValueChange={onOpenChange ?? setInnerOpen}

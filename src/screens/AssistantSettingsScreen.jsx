@@ -7,13 +7,13 @@ import { getLLMSettings, setLLMSettings, hasWebGPU, WEBLLM_MODELS, AUTO_MODEL, e
 import { getUnknown, clearUnknown } from '../assistant/engine/unknownLog.js'
 import { getFeedback, removeFeedback, clearFeedback, exportFeedback } from '../assistant/engine/feedbackLog.js'
 import { hhmm, timeOf, minutesOf } from '../utils/calendar/eventModel.js'
-import { GlassCard } from '../components/Common/Glass.jsx'
+import GlassCard from '../components/Glass/GlassCard.jsx'
 
 function Section({ title, footer, children }) {
   return (
     <div style={{ marginBottom: 28 }}>
       <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase', margin: '0 16px 6px' }}>{title}</p>
-      <GlassCard cornerRadius={16} style={{ overflow: 'hidden' }}>{children}</GlassCard>
+      <GlassCard radius={16} style={{ overflow: 'hidden' }}>{children}</GlassCard>
       {footer && <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '6px 16px 0', lineHeight: 1.45 }}>{footer}</p>}
     </div>
   )

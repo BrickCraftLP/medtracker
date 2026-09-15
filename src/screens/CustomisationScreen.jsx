@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { useGraphSettings } from '../context/GraphSettingsContext.jsx'
 import Switch from '../components/Common/Switch.jsx'
-import { GlassCard } from '../components/Common/Glass.jsx'
+import GlassCard from '../components/Glass/GlassCard.jsx'
 
 const COLOR_PALETTES = {
   'Klassisch': [
@@ -49,7 +49,7 @@ function Section({ title, children }) {
       <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase', margin: '0 16px 6px' }}>
         {title}
       </p>
-      <GlassCard cornerRadius={16} style={{ overflow: 'hidden' }}>{children}</GlassCard>
+      <GlassCard radius={16} style={{ overflow: 'hidden' }}>{children}</GlassCard>
     </div>
   )
 }

@@ -8,8 +8,7 @@ import { savePinConfig, deletePinConfig } from '../services/dbInterface.js'
 import { usePin } from '../context/PinContext.jsx'
 import { hashPin, generateSalt } from '../services/pinService.js'
 import { useLanguage } from '../context/LanguageContext.jsx'
-
-const GLASS = { background: 'var(--glass-card-bg)', backdropFilter: 'blur(60px) saturate(200%)', WebkitBackdropFilter: 'blur(60px) saturate(200%)', borderRadius: 16, border: '0.5px solid var(--glass-card-stroke)', boxShadow: 'var(--glass-card-shadow)', overflow: 'hidden' }
+import GlassCard from '../components/Glass/GlassCard.jsx'
 
 function Section({ title, children }) {
   return (
@@ -17,7 +16,7 @@ function Section({ title, children }) {
       <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase', margin: '0 16px 6px' }}>
         {title}
       </p>
-      <div style={GLASS}>{children}</div>
+      <GlassCard radius={16} style={{ overflow: 'hidden' }}>{children}</GlassCard>
     </div>
   )
 }
@@ -294,7 +293,7 @@ export default function AccountSettingsScreen() {
         </h1>
 
         {/* Profile card */}
-        <div style={{ ...GLASS, marginBottom: 32 }}>
+        <GlassCard radius={16} style={{ overflow: 'hidden', marginBottom: 32 }}>
           <div style={{ background: 'linear-gradient(135deg, rgba(0,122,255,0.19) 0%, rgba(139,92,246,0.19) 100%)', padding: '22px 20px 18px', display: 'flex', alignItems: 'center', gap: 16 }}>
             {avatarUrl && !avatarError ? (
               <img
@@ -336,7 +335,7 @@ export default function AccountSettingsScreen() {
               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{email}</span>
             </div>
           </div>
-        </div>
+        </GlassCard>
 
         {/* Profile picture */}
         <Section title={t('settings.profilePicture')}>

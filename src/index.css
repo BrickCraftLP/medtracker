@@ -493,6 +493,13 @@ html[data-theme="dark"] .liquid-scope {
   overflow: hidden;
   background: var(--liquid-tint);
 }
+/* liquid-glass-react eases every size change over 0.2s (edge-line layers and
+   .glass). A panel resized every frame (accordion springs) would trail its
+   own outline, so those transitions are off here. */
+.liquid-panel--instant > *,
+.liquid-panel--instant .glass {
+  transition: none !important;
+}
 
 /* ─── Content-sized glass card (GlassCard) ───────────────── */
 .glass-card-frame { position: relative; }

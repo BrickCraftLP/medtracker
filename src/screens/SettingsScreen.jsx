@@ -20,6 +20,8 @@ import { MODES } from '../themes/index.js'
 import { LANGUAGES, getLocale } from '../i18n/index.js'
 import Switch from '../components/Common/Switch.jsx'
 import BouncyAccordion from '../components/Common/BouncyAccordion.jsx'
+import GlassCard from '../components/Glass/GlassCard.jsx'
+import { remeasureGlass } from '../components/Glass/glassConfig.js'
 import { getPushStatus, enablePush, disablePush } from '../services/pushService.js'
 
 const EXPORT_VERSION = '1.8.2'
@@ -27,8 +29,6 @@ const BUILD_VERSION = '26I13.5F'
 const LEAD_MINUTES = [0, 5, 10, 15, 30]
 // Must match the check constraint on notification_prefs.exam_lead_days.
 const EXAM_LEAD_DAYS = [1, 2, 3, 7]
-
-const GLASS = { background: 'var(--glass-card-bg)', backdropFilter: 'blur(60px) saturate(200%)', WebkitBackdropFilter: 'blur(60px) saturate(200%)', borderRadius: 16, border: '0.5px solid var(--glass-card-stroke)', boxShadow: 'var(--glass-card-shadow)', overflow: 'hidden' }
 
 // ── Entrance "unstacking" cascade — sections fall smoothly into place from
 // above, staggered, instead of the page sliding in from the side. ──────────
@@ -462,11 +462,14 @@ export default function SettingsScreen() {
             affordance for that, so there's no separate button competing for attention. */}
         <motion.div
           variants={STACK_ITEM}
-          whileTap={{ scale: 0.99, backgroundColor: 'var(--bg-tertiary)' }}
+          whileTap={{ scale: 0.99 }}
           transition={{ duration: 0.15, ease: 'easeOut' }}
           onClick={() => goTo('/settings/account')}
-          style={{ ...GLASS, marginBottom: 20, padding: '18px 16px 14px', cursor: 'pointer' }}
+          onAnimationComplete={remeasureGlass}
+          style={{ marginBottom: 20, cursor: 'pointer' }}
         >
+          <GlassCard radius={16} style={{ overflow: 'hidden' }}>
+          <div style={{ padding: '18px 16px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             {avatarUrl && !avatarError ? (
               <img
@@ -511,6 +514,8 @@ export default function SettingsScreen() {
             </span>
             <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{formatSyncTime(lastSyncTime, t, language)}</span>
           </div>
+          </div>
+          </GlassCard>
         </motion.div>
 
         {/* Bouncy accordion of the remaining real settings */}
