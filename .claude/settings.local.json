@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create *)",
+      "Bash(npm install *)",
+      "PowerShell(Get-NetFirewallPortFilter | Where-Object { $_.LocalPort -eq \"5173\" } | Get-NetFirewallRule | Select-Object DisplayName, Enabled, Direction, Action)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Roli\\\\Downloads\\\\MedTracker\" -Force)",
+      "Bash(Select-Object Name, Mode)"
+    ]
+  }
+}

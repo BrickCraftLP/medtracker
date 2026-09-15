@@ -1,0 +1,59 @@
+{
+  "version": "26F19.1F",
+  "lang": "de",
+  "changes": [
+    { "type": "new",      "text": "Neues Sync-System – die App ist ab dem ersten Frame sofort bereit." },
+    { "type": "improved", "text": "Delta-Sync: nur geänderte Einträge werden übertragen, nicht alles." },
+    { "type": "improved", "text": "Hintergrund-Sync hält Daten aktuell, ohne die Oberfläche zu blockieren." },
+    { "type": "new",      "text": "Update-Log: sieh dir unter Einstellungen an, was sich geändert hat." }
+  ],
+  "blocks": [
+    {
+      "type": "hero",
+      "title": "MedTracker. Sofort.",
+      "subtitle": "Ab dem ersten Frame startklar."
+    },
+    {
+      "type": "paragraph",
+      "text": "App öffnen — und du bist mittendrin. Kein Ladebildschirm, kein Spinner, kein Warten auf Daten. Das neue Sync-System hält alles im Hintergrund aktuell, sodass du immer genau das siehst, was zuletzt gespeichert wurde."
+    },
+    {
+      "type": "heading",
+      "text": "Ein neues Sync-System"
+    },
+    {
+      "type": "paragraph",
+      "text": "Früher wurden beim Start alle Daten komplett neu geladen. Das neue System arbeitet anders: Es hält einen lokalen Snapshot und überträgt nur, was sich tatsächlich verändert hat — ein Delta. Weniger Daten. Weniger Wartezeit. Gleiches Ergebnis."
+    },
+    {
+      "type": "table",
+      "headers": ["Was", "Vorher", "Jetzt"],
+      "rows": [
+        ["App-Start",        "Alles laden, dann anzeigen",           "Lokale Daten sofort, Sync im Hintergrund"],
+        ["Sync-Umfang",      "Jedes Mal vollständiger Datensatz",    "Nur geänderte Einträge seit dem letzten Sync"],
+        ["Offline-Nutzung",  "Nur lesen ohne Verbindung",            "Lesen und Schreiben, Sync sobald wieder online"],
+        ["Datenverbrauch",   "Hoch bei jedem Öffnen",                "Nach dem ersten Start nahezu null"]
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "Offline-first — immer"
+    },
+    {
+      "type": "paragraph",
+      "text": "Keine Verbindung? Kein Problem. MedTracker liest und schreibt jetzt vollständig aus einem lokalen Speicher. Sobald die Verbindung wiederhergestellt ist, werden Änderungen automatisch synchronisiert — in der richtigen Reihenfolge, ohne Duplikate."
+    },
+    {
+      "type": "callout",
+      "text": "Deine Daten sind immer sicher. Jeder Schreibvorgang wird zuerst lokal gespeichert, bevor er das Netzwerk erreicht. Es geht nichts verloren."
+    },
+    {
+      "type": "heading",
+      "text": "Was sonst noch neu ist"
+    },
+    {
+      "type": "paragraph",
+      "text": "Mit diesem Release kommt auch der Update-Log — der Bereich, den du gerade liest. Jedes zukünftige Update erscheint hier mit vollständigen Release Notes, direkt von GitHub, ohne neues App-Update."
+    }
+  ]
+}

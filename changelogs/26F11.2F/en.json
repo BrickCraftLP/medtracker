@@ -1,0 +1,20 @@
+{
+  "version": "26F11.2F",
+  "lang": "en",
+  "changes": [
+    { "type": "new",      "text": "Your change here." },
+    { "type": "improved", "text": "Your change here." },
+    { "type": "fix",      "text": "Your change here." }
+  ],
+  "blocks": [
+    {
+      "type": "hero",
+      "title": "Your headline here.",
+      "subtitle": "Your subline here."
+    },
+    {
+      "type": "paragraph",
+      "text": "Your intro paragraph here."
+    }
+  ]
+}
