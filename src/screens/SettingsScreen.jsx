@@ -22,7 +22,7 @@ import Switch from '../components/Common/Switch.jsx'
 import BouncyAccordion from '../components/Common/BouncyAccordion.jsx'
 import { getPushStatus, enablePush, disablePush } from '../services/pushService.js'
 
-const EXPORT_VERSION = '1.8.1'
+const EXPORT_VERSION = '1.8.2'
 const BUILD_VERSION = '26I13.5F'
 const LEAD_MINUTES = [0, 5, 10, 15, 30]
 // Must match the check constraint on notification_prefs.exam_lead_days.
