@@ -874,6 +874,8 @@ export default {
   'widget.addSub':         '+ Hinzufügen',
   'widget.noSub':          'Noch keine Sub-Widgets. Drücke „+ Hinzufügen".',
   'widget.num':            'Widget {n}',
+  'widget.step':           '0{n} / 02',
+  'widget.close':          'Schließen',
   'widget.type.heatmap_intensity':    'Heatmap Intensität',
   'widget.type.heatmap_tracker':      'Streak Tracker',
   'widget.type.graph_view':           'Diagramm',
