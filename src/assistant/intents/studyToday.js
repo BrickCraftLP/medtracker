@@ -4,6 +4,7 @@
 // studying certain topics right after one another.
 
 import { registerIntent } from '../engine/registry.js'
+import { slot } from '../engine/schema.js'
 import { hasAny, tokenScore } from '../engine/normalize.js'
 import { extract } from '../engine/parse/index.js'
 import { daysBetween } from '../../utils/calendar/eventModel.js'
@@ -12,7 +13,7 @@ import { sessionDay, accuracyTrend, followPairs, habitualFollowers, fmtDelta } f
 registerIntent({
   id: 'study_suggestion',
   describe: 'Suggest which topics to study on a day, based on exams, accuracy, trend, recency and which topics the user usually studies back to back',
-  slots: { date: 'YYYY-MM-DD optional, default today', after: 'topic name just studied, optional' },
+  slots: { date: slot('date', 'day to plan, default today', { primary: true }), after: slot('ref:topic', 'topic just studied') },
   examples: ['What should I study today?', 'Was soll ich heute lernen?'],
   completions: {
     de: ['Was soll ich {day} lernen?', 'Was soll ich nach {topic} lernen?'],

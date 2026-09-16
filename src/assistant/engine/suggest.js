@@ -11,12 +11,19 @@
 // Placeholders: {day} {duration} {time} {clock} {topic} {event} {todo} are
 // filled; {title} {person} are free text — the suggestion stops before them
 // so the user keeps typing.
+//
+// Input starting with "/" completes the command language instead: action
+// ids, then field names, then values (days, times, choices, real names).
+// With nothing typed, the screen being looked at suggests questions first.
 
-import { allIntents } from './registry.js'
+import { allIntents, getIntent } from './registry.js'
 import { fold, correctToken } from './normalize.js'
 import { addDays, parseDayKey } from '../../utils/calendar/eventModel.js'
 import { sortTodos } from '../../utils/calculations/todoPriorityCalcs.js'
 import { freeSlots, findEvents } from '../intents/calendar.js'
+import { slotSpec, signature } from './schema.js'
+import { resolveIntentId } from './command.js'
+import { fmtMin } from './parse/times.js'
 import '../intents/index.js'
 
 const MAX = 5
@@ -192,17 +199,108 @@ function matchTemplate(tpl, input, fill) {
 
 // ── Public ─────────────────────────────────────────────────────────────────
 
-export function suggest(input, api) {
+// ── Commands ───────────────────────────────────────────────────────────────
+
+const quoteIfNeeded = v => (/[\s"]/.test(v) ? `"${v.replace(/"/g, '\\"')}"` : v)
+
+function valueOptions(spec, api, screen) {
+  const t = spec.type
+  if (t === 'date') {
+    const days = ['today', 'tomorrow', ...[2, 3, 4, 5, 6].map(i => parseDayKey(addDays(api.today, i)).toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase())]
+    return screen?.date ? ['@screen', ...days] : days
+  }
+  if (t === 'time') {
+    const starts = safe(() => freeSlots(api, addDays(api.today, 1), 60).map(s => fmtMin(Math.ceil(s.start / 30) * 30)), [])
+    return [...new Set([...starts, '09:00', '14:00', '18:00'])].slice(0, 5)
+  }
+  if (t === 'minutes') return ['30', '60', '90', '120']
+  if (t === 'bool') return ['true', 'false']
+  if (t === 'percent') return ['70', '80', '85', '90']
+  if (t.startsWith('enum:')) return t.slice(5).split('|')
+  if (t.startsWith('ref:')) {
+    const type = t.slice(4)
+    const names = safe(() => api.index().ranked(type, '', { limit: 8, filter: e => type !== 'todo' || e.open }).map(e => e.name), [])
+    return [...names, ...(screen?.topicId && type === 'topic' ? ['@screen'] : []), '@last']
+  }
+  return []
+}
+
+function suggestCommand(text, api, screen) {
+  const out = []
+  const m = text.match(/^\/([a-z_]*)$/i)
+  if (m) {
+    for (const intent of allIntents()) {
+      if (!intent.id.startsWith(m[1].toLowerCase())) continue
+      out.push({ value: `/${intent.id} `, label: signature(intent), submit: !slotSpec(intent).some(s => s.required), score: 10 })
+    }
+    return out.slice(0, MAX)
+  }
+  const head = text.match(/^\/([a-z_]+)\s/i)
+  const id = head ? resolveIntentId(head[1]) : null
+  const intent = id ? getIntent(id) : null
+  if (!intent) return []
+  const spec = slotSpec(intent)
+  const trailing = /\s$/.test(text)
+  const last = trailing ? '' : text.split(/\s+/).pop()
+  const before = trailing ? text : text.slice(0, text.length - last.length)
+  const used = new Set([...text.matchAll(/([a-z_]+)\s*:/gi)].map(x => x[1].toLowerCase()))
+  const kv = last.match(/^([a-z_]+):(.*)$/i)
+  // Every required field has a value: the command can be sent as it is.
+  const complete = spec.filter(s => s.required).every(s => used.has(s.key)) && (trailing || (kv && kv[2]))
+  const send = { value: text.trim(), label: `↵ ${text.trim()}`, submit: true, score: 20 }
+  if (kv) {
+    const s = spec.find(x => x.key === kv[1].toLowerCase())
+    if (!s) return complete ? [send] : []
+    // A value being typed: completions first, sending after them.
+    const typedValue = fold(kv[2].replace(/^"/, ''))
+    for (const v of valueOptions(s, api, screen)) {
+      if (typedValue && (!fold(v).startsWith(typedValue) || fold(v) === typedValue)) continue
+      out.push({ value: `${before}${s.key}:${quoteIfNeeded(v)} `, label: `${s.key}:${v}`, submit: false, score: 5 })
+    }
+    if (complete) out.push(send)
+    return out.slice(0, MAX)
+  }
+  if (complete) out.push(send)
+  for (const s of spec) {
+    if (used.has(s.key) || (last && !s.key.startsWith(last.toLowerCase()))) continue
+    out.push({ value: `${before}${s.key}:`, label: `${s.key}: ${s.describe}${s.required ? ' *' : ''}`, submit: false, score: s.required ? 6 : 4 })
+  }
+  return out.slice(0, MAX)
+}
+
+// ── Screen starters ────────────────────────────────────────────────────────
+
+function screenStarters(api, screen) {
+  const L = api.L
+  const topic = screen?.topicId ? api.topics.find(t => t.id === screen.topicId) : null
+  switch (screen?.screen) {
+    case 'calendar':
+      return screen.date && screen.date !== api.today
+        ? [L("What's on this day?", 'Was steht an dem Tag an?'), L('When am I free this day?', 'Wann habe ich an dem Tag Zeit?')]
+        : [L("What's on today?", 'Was steht heute an?'), L('How busy will the next two weeks be?', 'Wie stressig werden die nächsten zwei Wochen?')]
+    case 'topic-stats':
+      return topic ? [L(`Is ${topic.name} improving?`, `Wird ${topic.name} besser?`), L(`Start a session for ${topic.name}`, `Starte eine Session für ${topic.name}`), L(`When can I study ${topic.name}?`, `Wann kann ich ${topic.name} lernen?`)] : []
+    case 'exams': return [L('Make a study plan for my next exam', 'Lernplan für meine nächste Prüfung'), L('Which exams do I have?', 'Welche Prüfungen habe ich?')]
+    case 'statistics': return [L('Weekly review', 'Wochenrückblick'), L('Where did I get worse?', 'Wo habe ich mich verschlechtert?')]
+    case 'topics': return [L('What should I study today?', 'Was soll ich heute lernen?'), L('How am I doing overall?', 'Wie läuft es insgesamt?')]
+    case 'home': return [L('How am I doing overall?', 'Wie läuft es insgesamt?')]
+    default: return []
+  }
+}
+
+export function suggest(input, api, { screen = null } = {}) {
   if (!api) return []
   const lang = api.lang === 'en' ? 'en' : 'de'
   const fill = fillers(api)
   const text = String(input ?? '')
+  if (/^\s*\//.test(text)) return safe(() => suggestCommand(text.trimStart(), api, screen), [])
   const typed = norm(text)
   const templates = allIntents().flatMap(intent => intent.completions?.[lang] ?? [])
   const out = []
 
-  // Empty input: recent questions, then a few ready-to-send starters.
+  // Empty input: what fits the screen, recent questions, then ready-to-send starters.
   if (!typed) {
+    for (const s of safe(() => screenStarters(api, screen), []).slice(0, 2)) out.push({ value: s, label: s, submit: true, score: 200 })
     for (const h of getHistory().slice(0, 3)) out.push({ value: h, label: h, submit: true, score: 100 })
     for (const tpl of templates) {
       if (out.length >= MAX) break

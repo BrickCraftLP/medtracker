@@ -32,8 +32,14 @@ export default function ResultBlocks({ blocks }) {
 
 // ── Text ───────────────────────────────────────────────────────────────────
 
-function TextBlock({ text }) {
-  return <p style={{ margin: 0, fontSize: 15, lineHeight: 1.45, color: 'var(--text-primary)', whiteSpace: 'pre-line' }}>{text}</p>
+// `heading`: a section title inside a combined answer; `mono`: command syntax.
+function TextBlock({ text, heading = false, mono = false }) {
+  if (heading) return <div style={{ ...linkBtn, cursor: 'default', marginTop: 4 }}>{text}</div>
+  return (
+    <p style={{ margin: 0, fontSize: mono ? 13 : 15, lineHeight: 1.45, color: 'var(--text-primary)', whiteSpace: 'pre-line', fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' : undefined }}>
+      {text}
+    </p>
+  )
 }
 
 // ── Topics ─────────────────────────────────────────────────────────────────
@@ -443,6 +449,7 @@ function EventPreviewBlock({ flowId, rev, draft, todos = [] }) {
       start_time: d.allDay ? null : timeOf(s),
       end_time: d.allDay ? null : timeOf(Math.max(s + 5, d.endMin ?? s + 60)),
       location: d.location || null, notes: d.notes || null, reminders: d.reminders,
+      rrule: d.rrule || null,
       topic_id: d.topic_id,
     })
     a.flowAction('cancel', null, t('assistant.moreOptions'))
@@ -457,6 +464,7 @@ function EventPreviewBlock({ flowId, rev, draft, todos = [] }) {
           <div style={titleStyle}>{metaFor(d.kind).icon} {d.title || '…'}</div>
           <div style={subStyle}>{when}</div>
           {d.location && <div style={subStyle}>📍 {d.location}</div>}
+          {d.rrule && <div style={subStyle}>🔁 {repeatLabel(api, d.rrule)}</div>}
           <div style={subStyle}>
             {cal ? `${cal.icon ?? '📅'} ${cal.name}` : ''}
             {d.reminders?.length ? ` · 🔔 ${d.reminders.map(m => reminderLabel(t, m)).join(', ')}` : ''}
@@ -467,6 +475,21 @@ function EventPreviewBlock({ flowId, rev, draft, todos = [] }) {
       </Row>
     </Card>
   )
+}
+
+// "FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=2026-10-03" → "weekly · Mo, Mi · until 3 Oct".
+const DAY_CODE = { SU: ['Su', 'So'], MO: ['Mo', 'Mo'], TU: ['Tu', 'Di'], WE: ['We', 'Mi'], TH: ['Th', 'Do'], FR: ['Fr', 'Fr'], SA: ['Sa', 'Sa'] }
+function repeatLabel(api, rrule) {
+  const p = Object.fromEntries(String(rrule).split(';').map(x => x.split('=')))
+  const L = api.L
+  const every = Number(p.INTERVAL) > 1
+  const freq = { DAILY: every ? L(`every ${p.INTERVAL} days`, `alle ${p.INTERVAL} Tage`) : L('daily', 'täglich'), WEEKLY: every ? L(`every ${p.INTERVAL} weeks`, `alle ${p.INTERVAL} Wochen`) : L('weekly', 'wöchentlich'), MONTHLY: every ? L(`every ${p.INTERVAL} months`, `alle ${p.INTERVAL} Monate`) : L('monthly', 'monatlich') }[p.FREQ] ?? p.FREQ
+  return [
+    freq,
+    p.BYDAY ? p.BYDAY.split(',').map(c => DAY_CODE[c]?.[api.lang === 'en' ? 0 : 1] ?? c).join(', ') : null,
+    p.UNTIL ? L(`until ${api.fmtDay(p.UNTIL)}`, `bis ${api.fmtDay(p.UNTIL)}`) : null,
+    p.COUNT ? L(`${p.COUNT} times`, `${p.COUNT}×`) : null,
+  ].filter(Boolean).join(' · ')
 }
 
 // A button that starts the guided flow from `init` (e.g. "add it anyway").
@@ -516,7 +539,49 @@ function ChoicesBlock({ prompt, options = [], query, primary = false }) {
   )
 }
 
-const BLOCKS = { text: TextBlock, topics: TopicsBlock, events: EventsBlock, slots: SlotsBlock, draft: DraftBlock, todos: TodosBlock, saved: SavedBlock, stats: StatsBlock, eventPreview: EventPreviewBlock, flowButton: FlowButtonBlock, choices: ChoicesBlock }
+// ── Confirm ("Add this exam?", several changes at once) ────────────────────
+
+// actions: [{ intent, slots, label }]. One tap runs them all, in order, as
+// confirmed (`confirmed: 'card'`); intents that guard a change act only then.
+function ConfirmBlock({ prompt, actions = [], query = null, confirmLabel = null, danger = false }) {
+  const a = useAssistant()
+  const [state, setState] = useState(null)   // null | 'running' | 'done' | 'cancelled'
+  if (!actions.length) return null
+  const L = a.api.L
+
+  async function confirm() {
+    setState('running')
+    for (const act of actions) await a.runIntent(act.intent, act.slots, act.label, { query: actions.length === 1 ? query : null, confirmed: 'card' })
+    setState('done')
+  }
+
+  return (
+    <Card>
+      {prompt && <Row><div style={{ ...titleStyle, whiteSpace: 'pre-line', flex: 1 }}>{prompt}</div></Row>}
+      {actions.length > 1 && actions.map((act, i) => (
+        <Row key={`${act.intent}-${i}`} divider>
+          <span style={{ width: 22, textAlign: 'center', fontWeight: 700, flexShrink: 0, color: 'var(--accent)' }}>{state === 'done' ? '✓' : `${i + 1}.`}</span>
+          <div style={{ ...titleStyle, whiteSpace: 'normal', flex: 1 }}>{act.label}</div>
+        </Row>
+      ))}
+      <Row divider style={{ justifyContent: 'flex-end' }}>
+        {state === 'done' && <span style={{ ...subStyle, flex: 1 }}>✓ {L('Done', 'Erledigt')}</span>}
+        {state === 'cancelled' && <span style={{ ...subStyle, flex: 1 }}>{L('Cancelled', 'Abgebrochen')}</span>}
+        {!state && (
+          <>
+            <SmallBtn onClick={() => setState('cancelled')}>{L('Cancel', 'Abbrechen')}</SmallBtn>
+            <SmallBtn primary={!danger} danger={danger} onClick={confirm}>
+              {confirmLabel ?? (actions.length > 1 ? L(`Do all ${actions.length}`, `Alle ${actions.length} ausführen`) : actions[0].label)}
+            </SmallBtn>
+          </>
+        )}
+        {state === 'running' && <span style={{ ...subStyle, flex: 1 }}>…</span>}
+      </Row>
+    </Card>
+  )
+}
+
+const BLOCKS = { text: TextBlock, topics: TopicsBlock, events: EventsBlock, slots: SlotsBlock, draft: DraftBlock, todos: TodosBlock, saved: SavedBlock, stats: StatsBlock, eventPreview: EventPreviewBlock, flowButton: FlowButtonBlock, choices: ChoicesBlock, confirm: ConfirmBlock }
 
 // ── Primitives ─────────────────────────────────────────────────────────────
 

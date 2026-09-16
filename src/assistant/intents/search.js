@@ -4,10 +4,12 @@
 // translations for words the built-in vocabulary does not know.
 
 import { registerIntent } from '../engine/registry.js'
+import { slot } from '../engine/schema.js'
 import { extract } from '../engine/parse/index.js'
 import { fmtMin } from '../engine/parse/times.js'
 import { matchScore, searchWords } from '../engine/lexicon.js'
 import { addDays, parseDayKey } from '../../utils/calendar/eventModel.js'
+import { expandRange } from '../../utils/calendar/recurrence.js'
 import { occItem } from './calendar.js'
 import { countdown } from './overview.js'
 
@@ -46,7 +48,10 @@ export function searchAll(api, query, { from, to, extraTerms = [] }) {
     return r.score
   }
   const eventHit = new Map()
-  const occ = api.occurrences(from, to).filter(o => {
+  // The index names the series that can match at all; only those get expanded.
+  // Translated terms (extraTerms) may reach rows the query words do not.
+  const allowed = extraTerms.length ? null : new Set(api.index().candidates(query, ['event']).map(e => e.id))
+  const occ = (allowed ? expandRange(api.events.filter(e => allowed.has(e.id) || allowed.has(e.recurrence_parent_id)), from, to) : api.occurrences(from, to)).filter(o => {
     if (!eventHit.has(o.event.id)) eventHit.set(o.event.id, scoreOf(eventHay(api, o.event)) >= 0.5)
     return eventHit.get(o.event.id)
   })
@@ -134,7 +139,10 @@ async function daysAnswer(api, q, slots) {
 registerIntent({
   id: 'next_occurrence',
   describe: 'When / on which days the user has a calendar entry matching a name or subject (searches titles, notes, places, calendars and topics in German and English), with related todos',
-  slots: { query: 'words to search for, e.g. "chemistry"', mode: '"next" for the next time, "days" for all dates in a span', from: 'YYYY-MM-DD optional', to: 'YYYY-MM-DD optional' },
+  slots: {
+    query: slot('text', 'words to search for, e.g. "chemistry"', { required: true, primary: true }),
+    mode: slot('enum:next|days', 'next = the next time, days = every date in a span'), from: slot('date', 'span start'), to: slot('date', 'span end'),
+  },
   examples: ['When do I have chemistry next?', 'An welchen Tagen habe ich Chemie?'],
   completions: {
     de: ['Wann habe ich das nächste Mal {event}?', 'An welchen Tagen habe ich {event}?', 'Wann ist die nächste {event}?'],
@@ -201,7 +209,7 @@ registerIntent({
 registerIntent({
   id: 'search_all',
   describe: 'Find calendar entries, todos and exams by words in their title, notes, place, calendar or topic (German and English)',
-  slots: { query: 'search words' },
+  slots: { query: slot('text', 'search words', { required: true, primary: true }) },
   examples: ['Find dentist appointment', 'Suche alles zu Chemie'],
   completions: {
     de: ['Suche {title}', 'Wann ist {event}?', 'Zeig mir alles zu {topic}'],

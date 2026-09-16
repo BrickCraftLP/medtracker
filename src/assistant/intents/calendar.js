@@ -2,11 +2,15 @@
 // Searching by name lives in search.js.
 
 import { registerIntent, getIntent } from '../engine/registry.js'
+import { slot } from '../engine/schema.js'
 import { matchScore } from '../engine/lexicon.js'
 import { startEventFlow, eventQuestion, parseLocation } from '../flows/eventFlow.js'
 import { extract, cleanTitle, restoreCase } from '../engine/parse/index.js'
 import { fmtMin, fmtDuration } from '../engine/parse/times.js'
 import { addDays, minutesOf, timeOf, buildEvent } from '../../utils/calendar/eventModel.js'
+import { expandRange } from '../../utils/calendar/recurrence.js'
+import { resolveRef, isDeictic, isArticleOnly, contextRef, contextDate } from '../engine/references.js'
+import { parseAnchor } from '../engine/parse/anchors.js'
 
 // ── Vocabulary ─────────────────────────────────────────────────────────────
 
@@ -133,20 +137,34 @@ export function makeEventRow(api, d) {
 }
 
 // Occurrences whose title matches, next upcoming first, one per event.
+// `@screen` / `@last` / "das" resolve to the event on screen or in the last
+// answer; the entity index narrows which series get expanded at all.
 export function findEvents(api, query, date = null) {
-  const q = cleanTitle(query ?? '', ['the', 'my', 'den', 'die', 'das', 'der', 'dem', 'meinen', 'meine', 'mein', 'event', 'termin']).toLowerCase()
   const from = date ?? addDays(api.today, -1)
   const to = date ?? addDays(api.today, 120)
+  const byStart = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMin - b.startMin)
+  const ref = String(query ?? '').startsWith('@') || isDeictic(query) || isArticleOnly(query) ? resolveRef(api, 'event', query) : null
+  if (ref) {
+    const occ = expandRange(api.events.filter(e => e.id === ref.row.id || e.recurrence_parent_id === ref.row.id), from, to).sort(byStart)
+    const recentDate = (api.recent ?? []).flatMap(t => t.entities ?? []).find(e => e.type === 'event' && e.id === ref.row.id)?.date
+    // The date the last answer showed for it, else its next one.
+    const pick = occ.find(o => o.date === recentDate) ?? occ.find(o => o.date >= api.today) ?? occ[0]
+    return pick ? [pick] : []
+  }
+  const q = cleanTitle(query ?? '', ['the', 'my', 'den', 'die', 'das', 'der', 'dem', 'meinen', 'meine', 'mein', 'event', 'termin']).toLowerCase()
+  const allowed = q ? new Set(api.index().candidates(q, ['event']).map(e => e.id)) : null
+  const events = allowed ? api.events.filter(e => allowed.has(e.id) || allowed.has(e.recurrence_parent_id)) : api.events
+  const focus = api.focus()
   const seen = new Set()
   const out = []
-  const occ = api.occurrences(from, to).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMin - b.startMin))
-  for (const o of occ) {
+  for (const o of expandRange(events, from, to).sort(byStart)) {
     if (seen.has(o.event.id)) continue
     if (q && matchScore(q, `${o.event.title ?? ''} ${o.event.location ?? ''}`, { lang: api.lang }).score < 0.5) continue
     seen.add(o.event.id)
     out.push(o)
   }
-  return out
+  // What the user is looking at comes first among equals.
+  return focus.size ? [...out.filter(o => focus.has(`event:${o.event.id}`)), ...out.filter(o => !focus.has(`event:${o.event.id}`))] : out
 }
 
 export const occItem = (o, showDate = false) => ({ eventId: o.event.id, date: o.date, startMin: o.startMin, endMin: o.endMin, allDay: o.allDay, showDate })
@@ -198,15 +216,16 @@ registerIntent({
   id: 'free_time',
   describe: 'When is the user free? Checks one day, a range, or the next 7 days for a free window (optionally of a given length and purpose)',
   slots: {
-    date: 'YYYY-MM-DD optional', from: 'range start YYYY-MM-DD optional', to: 'range end optional',
-    minutes: 'integer minutes needed, optional', purpose: 'study|meet|friends|meal|sport optional', with: 'person name optional', scan: 'true to search the coming week',
+    date: slot('date', 'one day to check', { primary: true }), from: slot('date', 'first day of a span'), to: slot('date', 'last day of a span'),
+    minutes: slot('minutes', 'length of the free window needed'), purpose: slot('enum:study|meet|friends|meal|sport', 'what the time is for'),
+    with: slot('text', 'person to meet'), scan: slot('bool', 'search the coming 7 days'),
   },
   examples: ['When can I meet someone for 3 hours?', 'Wann kann ich mich für 3 Stunden mit jemandem treffen?'],
   completions: {
     de: ['Wann kann ich {day}?', 'Wann kann ich mich für {duration} treffen?', 'Wann kann ich {duration} lernen?', 'Wann kann ich {topic} lernen?', 'Wann habe ich {day} Zeit?', 'Habe ich {day} {duration} Zeit?'],
     en: ['When can I {day}?', 'When can I meet for {duration}?', 'When can I study {topic}?', 'When am I free {day}?', 'Do I have {duration} free {day}?'],
   },
-  match(text, { today, raw }) {
+  match(text, { today, raw, api }) {
     if (/\btodo\b/.test(text) || EDIT_VERB.test(text)) return null
     // "Wann bin ich morgen fertig?" asks for the end of the day (day_bounds).
     if (/\b(fertig|durch|done|finished|through)\b/.test(text)) return null
@@ -222,9 +241,11 @@ registerIntent({
     // "trag mir morgen 9–10 frei ein" is still an add.
     if (!when && ADD.test(text) && x.startMin != null) return null
     const p = detectPurpose(text)
+    // No day named: the day on screen ("an dem Tag", or the calendar day being looked at).
+    const shown = !x.date && !x.range && api ? contextDate(api, text) : null
     return {
       score: when ? 0.95 : question ? 0.9 : 0.65,
-      slots: { date: x.date, from: x.range?.from ?? null, to: x.range?.to ?? null, minutes: x.minutes, ...p, scan: when && !x.date && !x.range },
+      slots: { date: x.date ?? shown, from: x.range?.from ?? null, to: x.range?.to ?? null, minutes: x.minutes, ...p, scan: when && !x.date && !x.range && !shown },
     }
   },
   execute(slots, api, ctx = {}) {
@@ -309,13 +330,13 @@ registerIntent({
 registerIntent({
   id: 'day_agenda',
   describe: "Show what's in the calendar on a day (events, exams, todos due)",
-  slots: { date: 'YYYY-MM-DD' },
+  slots: { date: slot('date', 'the day to show', { primary: true }) },
   examples: ["What's on tomorrow?", 'Was steht morgen an?'],
   completions: {
     de: ['Was steht {day} an?', 'Was habe ich {day}?'],
     en: ["What's on {day}?"],
   },
-  match(text, { today }) {
+  match(text, { today, api }) {
     if (/\btodo\b/.test(text) || WHEN_CAN.test(text) || EDIT_VERB.test(text)) return null
     if (ADD.test(text) && !STARTS_QUESTION.test(text)) return null
     const x = extract(text, today)
@@ -323,6 +344,10 @@ registerIntent({
     const asks = /\b(what'?s on|whats on|what do i have|what am i doing|what'?s planned|my plan|was habe ich|was hab ich|was steht|steht .*an|ansteht|was ist .*los|was geht|was mache ich|was ist geplant|geplant|agenda|overview|uebersicht|show)\b/.test(text)
     if (asks && date) return { score: 0.85, slots: { date } }
     if (/\bevent\b/.test(text) && date && !/\b(find|search|such\w*|loesch\w*|delete|verschieb\w*|move)\b/.test(text)) return { score: 0.7, slots: { date } }
+    // "Was steht an?" with no day: the day on screen, else today.
+    if (!date && !x.range && /^(?:und |and )?(?:was steht (?:(?:da|hier|dann|an dem tag|an diesem tag) )?an|what'?s on(?: (?:there|that day|this day))?|whats on|was ist (?:da|hier|an dem tag) los|agenda)$/.test(text)) {
+      return { score: 0.8, slots: { date: (api && contextDate(api, text)) || today } }
+    }
     return null
   },
   execute(slots, api) {
@@ -349,19 +374,29 @@ registerIntent({
   id: 'add_event',
   describe: 'Create a calendar event. Asks step by step for what is missing (day, time, place, calendar, reminder, todos); with title, day and time given it shows a review card to save',
   slots: {
-    title: 'event title', date: 'YYYY-MM-DD optional', start: 'HH:MM optional', end: 'HH:MM optional', minutes: 'duration minutes optional',
-    all_day: 'true optional', kind: 'class|study|assignment|exam|deadline|event|other', topic: 'topic name optional',
-    location: 'place optional', calendar: 'calendar name optional', reminders: 'minutes before as a list, e.g. [30] optional', notes: 'optional',
+    title: slot('text', 'event title', { primary: true }), date: slot('date', 'day'), start: slot('time', 'start time'), end: slot('time', 'end time'),
+    minutes: slot('minutes', 'length'), all_day: slot('bool', 'all day'), kind: slot('enum:class|study|assignment|exam|deadline|event|other', 'kind of entry'),
+    topic: slot('ref:topic', 'topic for study or exam entries'), location: slot('text', 'place'), calendar: slot('ref:calendar', 'calendar name'),
+    reminders: slot('list:minutes', 'reminders, minutes before start'), repeat: slot('text', 'RRULE, e.g. FREQ=WEEKLY;BYDAY=MO'), notes: slot('text', 'notes'),
   },
   examples: ['Add brunch tomorrow 9-10', 'Trage mir morgen von 9-10 einen Brunch ein'],
   completions: {
     de: ['Trage mir {day} von {time} {title} ein', 'Trag {day} um {clock} {title} ein', 'Neuer Termin {title} {day} um {clock}'],
     en: ['Add {title} {day} at {clock}', 'Schedule {title} {day} {time}'],
   },
-  match(text, { today, raw }) {
+  match(text, { today, raw, api }) {
     if (/\btodo\b/.test(text) || WHEN_CAN.test(text) || EDIT_VERB.test(text)) return null
     const x = extract(text, today)
-    const kind = KIND_WORDS.find(([, re]) => re.test(text))?.[0] ?? 'event'
+    // "nach der Vorlesung", "right after brunch": the time comes from that entry.
+    const anchor = x.startMin == null && api ? parseAnchor(` ${x.rest} `, api, x.date) : null
+    if (anchor) {
+      x.rest = x.rest.replace(anchor.match, ' ').replace(/\s+/g, ' ').trim()
+      x.date = x.date ?? anchor.date
+      const len = x.minutes ?? 60
+      x.startMin = anchor.after ? anchor.startMin : Math.max(0, anchor.endMin - len)
+      x.endMin = anchor.after ? Math.min(1439, anchor.startMin + len) : anchor.endMin
+    }
+    const kind = KIND_WORDS.find(([, re]) => re.test(x.rest))?.[0] ?? KIND_WORDS.find(([, re]) => re.test(text))?.[0] ?? 'event'
     const date = x.date ?? x.range?.from ?? null
     const hasWhen = date != null || x.startMin != null
     // "… im Café Central": the place comes off the end before the title is cleaned.
@@ -388,6 +423,8 @@ registerIntent({
         start: x.startMin != null ? fmtMin(x.startMin) : null,
         end: x.endMin != null ? fmtMin(x.endMin) : null,
         minutes: x.minutes,
+        ...(x.rrule ? { repeat: x.rrule } : {}),
+        ...(x.reminders ? { reminders: x.reminders } : {}),
         explicit: date != null && x.startMin != null && !x.fuzzyTime,
       },
     }
@@ -409,6 +446,8 @@ registerIntent({
       location: slots.location || '',
       calendar: slots.calendar || null,
       reminders,
+      remindersGiven: slots.reminders != null,
+      repeat: slots.repeat || null,
       notes: slots.notes || '',
     }, api)
     return { ...eventQuestion(flow, api), startFlow: flow }
@@ -421,22 +460,30 @@ registerIntent({
   id: 'move_event',
   mutates: true,
   describe: 'Move / reschedule an existing calendar event to another date and/or time',
-  slots: { title: 'words from the event title', from_date: 'current date YYYY-MM-DD optional', date: 'new date optional', start: 'new start HH:MM optional' },
+  slots: {
+    title: slot('ref:event', 'the event to move', { required: true, primary: true }), from_date: slot('date', 'its current day, if several'),
+    date: slot('date', 'new day'), start: slot('time', 'new start time'),
+  },
   examples: ['Move brunch to 11am', 'Verschiebe den Brunch auf Freitag 10 Uhr'],
   completions: {
     de: ['Verschiebe {event} auf {day}', 'Verschiebe {event} auf {clock}'],
     en: ['Move {event} to {day}', 'Move {event} to {clock}'],
   },
-  match(text, { today }) {
+  match(text, { today, api }) {
     const m = text.match(/^(?:bitte )?(?:move|reschedule|shift|push|verschieb\w*|verleg\w*)\s+(?:the |den |die |das |mein\w* )?(?:event )?(.+?)\s+(?:to|auf|nach|zu|in|um)\s+(.+)$/)
     if (!m) return null
     const target = extract(` ${m[2]} `, today)
     if (target.date == null && target.startMin == null && !target.range) return null
     const src = extract(m[1], today)
-    return {
-      score: /\btodo\b/.test(text) ? 0.3 : 0.85,
-      slots: { title: src.rest, from_date: src.date, date: target.date ?? target.range?.from ?? null, start: target.startMin != null ? fmtMin(target.startMin) : null },
+    const slots = { title: src.rest, from_date: src.date, date: target.date ?? target.range?.from ?? null, start: target.startMin != null ? fmtMin(target.startMin) : null }
+    // "Verschieb das auf 11 Uhr": the entry on screen or in the last answer.
+    if (isDeictic(src.rest) || isArticleOnly(src.rest)) {
+      const ref = api ? contextRef(api, ['event', 'todo', 'exam']) : null
+      return ref?.type === 'event' ? { score: 0.88, slots: { ...slots, title: ref.token } } : null
     }
+    // An exam by that name is move_exam's.
+    if (api && /\bexam\b/.test(text) && api.index().best(src.rest, { types: ['exam'], min: 0.5 })) return null
+    return { score: /\btodo\b/.test(text) ? 0.3 : 0.85, slots }
   },
   async execute(slots, api, ctx) {
     const hits = findEvents(api, slots.title, slots.from_date)
@@ -484,18 +531,24 @@ registerIntent({
 registerIntent({
   id: 'delete_event',
   describe: 'Delete / cancel a calendar event (asks for confirmation)',
-  slots: { title: 'words from the event title', date: 'YYYY-MM-DD optional' },
+  slots: { title: slot('ref:event', 'the event to delete', { required: true, primary: true }), date: slot('date', 'its day, if several') },
   examples: ['Cancel brunch tomorrow', 'Sag das Treffen mit Anna ab'],
   completions: {
     de: ['Lösche Termin {event}', 'Sag {event} ab'],
     en: ['Cancel {event}', 'Delete event {event}'],
   },
-  match(text, { today }) {
+  match(text, { today, api }) {
     if (/\btodo\b/.test(text)) return null
     const m = text.match(/^(?:bitte )?(?:delete|remove|cancel|loesch\w*|entfern\w*|streich\w*|sag\w*)\s+(?:the |den |die |das |mein\w* )?(?:event\s+)?(.+?)(?:\s+ab)?$/)
     if (!m) return null
     if (/^sag/.test(text) && !/\sab$/.test(text)) return null
     const x = extract(m[1], today)
+    if (isDeictic(x.rest) || isArticleOnly(x.rest)) {
+      const ref = api ? contextRef(api, ['event', 'todo', 'exam']) : null
+      return ref?.type === 'event' ? { score: 0.88, slots: { title: ref.token, date: x.date } } : null
+    }
+    // An exam by that name is delete_exam's.
+    if (api && /\bexam\b/.test(text) && api.index().best(x.rest, { types: ['exam'], min: 0.5 })) return null
     return { score: /\bevent\b/.test(text) ? 0.9 : 0.72, slots: { title: x.rest, date: x.date } }
   },
   execute(slots, api) {

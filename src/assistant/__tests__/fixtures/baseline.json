@@ -1,0 +1,684 @@
+{
+  "Neues Todo Skript lesen bis Freitag": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "add_todo",
+    "choices": [],
+    "slots": {
+      "text": "Skript lesen",
+      "due_date": "2026-09-18",
+      "due_time": null,
+      "priority": null
+    }
+  },
+  "Add todo read cardio chapter tomorrow": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "add_todo",
+    "choices": [],
+    "slots": {
+      "text": "Read cardio chapter",
+      "due_date": "2026-09-17",
+      "due_time": null,
+      "priority": null
+    }
+  },
+  "Erinnere mich an Wäsche waschen": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "add_todo",
+    "choices": [],
+    "slots": {
+      "text": "Wäsche waschen",
+      "due_date": null,
+      "due_time": null,
+      "priority": null
+    }
+  },
+  "Ich muss morgen Wäsche waschen": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "add_todo",
+    "choices": [],
+    "slots": {
+      "text": "Wäsche waschen",
+      "due_date": "2026-09-17",
+      "due_time": null,
+      "priority": null
+    }
+  },
+  "Notiere Bücher zurückbringen": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "add_todo",
+    "choices": [],
+    "slots": {
+      "text": "Bücher zurückbringen",
+      "due_date": null,
+      "due_time": null,
+      "priority": null
+    }
+  },
+  "Zeig meine Todos": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "list_todos",
+    "choices": [],
+    "slots": {
+      "date": null,
+      "overdue": false
+    }
+  },
+  "Show my todos": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "list_todos",
+    "choices": [],
+    "slots": {
+      "date": null,
+      "overdue": false
+    }
+  },
+  "Was muss ich heute noch erledigen?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "list_todos",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-16",
+      "overdue": false
+    }
+  },
+  "Welche Todos sind überfällig?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "list_todos",
+    "choices": [],
+    "slots": {
+      "date": null,
+      "overdue": true
+    }
+  },
+  "Skript lesen erledigt": {
+    "lang": "de",
+    "decision": "local-sure",
+    "intent": "complete_todo",
+    "choices": [],
+    "slots": {
+      "text": "Skript lesen"
+    }
+  },
+  "Hake Kittel kaufen ab": {
+    "lang": "de",
+    "decision": "local-sure",
+    "intent": "complete_todo",
+    "choices": [],
+    "slots": {
+      "text": "Kittel kaufen"
+    }
+  },
+  "Mark Skript lesen as done": {
+    "lang": "en",
+    "decision": "local-sure",
+    "intent": "complete_todo",
+    "choices": [],
+    "slots": {
+      "text": "Skript lesen"
+    }
+  },
+  "Ändere das Datum von Skript lesen auf Montag": {
+    "lang": "de",
+    "decision": "local-sure",
+    "intent": "edit_todo",
+    "choices": [],
+    "slots": {
+      "text": "Skript lesen",
+      "due_date": "2026-09-21"
+    }
+  },
+  "Verschiebe Todo Skript lesen auf Freitag": {
+    "lang": "de",
+    "decision": "local-sure",
+    "intent": "edit_todo",
+    "choices": [],
+    "slots": {
+      "text": "Skript lesen",
+      "due_date": "2026-09-18"
+    }
+  },
+  "Benenne Kittel kaufen in Kittel bestellen um": {
+    "lang": "de",
+    "decision": "local-sure",
+    "intent": "edit_todo",
+    "choices": [],
+    "slots": {
+      "text": "Kittel kaufen",
+      "new_text": "Kittel bestellen"
+    }
+  },
+  "Mach Skript lesen wichtig": {
+    "lang": "de",
+    "decision": "local-sure",
+    "intent": "edit_todo",
+    "choices": [],
+    "slots": {
+      "text": "Skript lesen",
+      "priority": 3
+    }
+  },
+  "Lösche das Todo Kittel kaufen": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "delete_todo",
+    "choices": [],
+    "slots": {
+      "text": "kittel kaufen"
+    }
+  },
+  "Delete todo Kittel kaufen": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "delete_todo",
+    "choices": [],
+    "slots": {
+      "text": "kittel kaufen"
+    }
+  },
+  "Was steht morgen an?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "day_agenda",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-17"
+    }
+  },
+  "What's on tomorrow?": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "day_agenda",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-17"
+    }
+  },
+  "Was habe ich am Freitag?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "day_agenda",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-18"
+    }
+  },
+  "Wann habe ich morgen Zeit?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "free_time",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-17",
+      "from": null,
+      "to": null,
+      "minutes": null,
+      "purpose": null,
+      "meal": null,
+      "with": null,
+      "scan": false
+    }
+  },
+  "When am I free on Friday?": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "free_time",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-18",
+      "from": null,
+      "to": null,
+      "minutes": null,
+      "purpose": null,
+      "meal": null,
+      "with": null,
+      "scan": false
+    }
+  },
+  "Wann kann ich mich für 3 Stunden mit jemandem treffen?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "free_time",
+    "choices": [],
+    "slots": {
+      "date": null,
+      "from": null,
+      "to": null,
+      "minutes": 180,
+      "purpose": "meet",
+      "meal": null,
+      "with": null,
+      "scan": true
+    }
+  },
+  "Habe ich morgen 2 Stunden frei?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "free_time",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-17",
+      "from": null,
+      "to": null,
+      "minutes": 120,
+      "purpose": null,
+      "meal": null,
+      "with": null,
+      "scan": false
+    }
+  },
+  "Trage mir morgen von 9-10 einen Brunch ein": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "add_event",
+    "choices": [],
+    "slots": {
+      "title": "Brunch",
+      "date": "2026-09-17",
+      "kind": "event",
+      "location": null,
+      "start": "09:00",
+      "end": "10:00",
+      "minutes": 60,
+      "explicit": true
+    }
+  },
+  "Add brunch tomorrow 9-10": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "add_event",
+    "choices": [],
+    "slots": {
+      "title": "Brunch",
+      "date": "2026-09-17",
+      "kind": "event",
+      "location": null,
+      "start": "09:00",
+      "end": "10:00",
+      "minutes": 60,
+      "explicit": true
+    }
+  },
+  "Ich habe Freitag um 15 Uhr Zahnarzt": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "add_event",
+    "choices": [],
+    "slots": {
+      "title": "Zahnarzt",
+      "date": "2026-09-18",
+      "kind": "event",
+      "location": null,
+      "start": "15:00",
+      "end": null,
+      "minutes": null,
+      "explicit": true
+    }
+  },
+  "Verschiebe den Brunch auf Samstag 11 Uhr": {
+    "lang": "de",
+    "decision": "local-sure",
+    "intent": "move_event",
+    "choices": [],
+    "slots": {
+      "title": "brunch",
+      "from_date": null,
+      "date": "2026-09-19",
+      "start": "11:00"
+    }
+  },
+  "Move brunch to 11am": {
+    "lang": "en",
+    "decision": "local-sure",
+    "intent": "move_event",
+    "choices": [],
+    "slots": {
+      "title": "brunch",
+      "from_date": null,
+      "date": null,
+      "start": "11:00"
+    }
+  },
+  "Sag den Zahnarzt ab": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "delete_event",
+    "choices": [],
+    "slots": {
+      "title": "zahnarzt",
+      "date": null
+    }
+  },
+  "Cancel Zahnarzt": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "delete_event",
+    "choices": [],
+    "slots": {
+      "title": "zahnarzt",
+      "date": null
+    }
+  },
+  "Kann ich morgen von 15 bis 17 Uhr zum Zahnarzt?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "check_overlap",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-17",
+      "start": "15:00",
+      "end": "17:00",
+      "minutes": 120,
+      "title": "Zahnarzt"
+    }
+  },
+  "Überschneidet sich Freitag 10-11 mit etwas?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "check_overlap",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-18",
+      "start": "10:00",
+      "end": "11:00",
+      "minutes": 60,
+      "title": ""
+    }
+  },
+  "Wann habe ich das nächste Mal Chemie?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "next_occurrence",
+    "choices": [],
+    "slots": {
+      "query": "chemie",
+      "mode": "next"
+    }
+  },
+  "When do I have chemistry next?": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "next_occurrence",
+    "choices": [],
+    "slots": {
+      "query": "chemistry",
+      "mode": "next"
+    }
+  },
+  "An welchen Tagen habe ich Chemie?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "next_occurrence",
+    "choices": [],
+    "slots": {
+      "query": "chemie",
+      "mode": "days",
+      "from": null,
+      "to": null
+    }
+  },
+  "Suche alles zu Chemie": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "search_all",
+    "choices": [],
+    "slots": {
+      "query": "chemie"
+    }
+  },
+  "Find dentist appointment": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "search_all",
+    "choices": [],
+    "slots": {
+      "query": "dentist"
+    }
+  },
+  "Wo muss ich in Genetik hin?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "event_info",
+    "choices": [],
+    "slots": {
+      "query": "genetik",
+      "field": "location",
+      "from": null,
+      "to": null
+    }
+  },
+  "Where is genetics?": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "event_info",
+    "choices": [],
+    "slots": {
+      "query": "genetics",
+      "field": "location",
+      "from": null,
+      "to": null
+    }
+  },
+  "Wann endet Genetik?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "event_info",
+    "choices": [],
+    "slots": {
+      "query": "genetik",
+      "field": "end",
+      "from": null,
+      "to": null
+    }
+  },
+  "Wie lange geht Chemie?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "event_info",
+    "choices": [],
+    "slots": {
+      "query": "chemie",
+      "field": "duration",
+      "from": null,
+      "to": null
+    }
+  },
+  "Wann bin ich morgen fertig?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "day_bounds",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-17",
+      "mode": "last"
+    }
+  },
+  "Was ist morgen mein erster Termin?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "day_bounds",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-17",
+      "mode": "first"
+    }
+  },
+  "Wie spät ist es?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "current_time",
+    "choices": [],
+    "slots": {}
+  },
+  "What time is it?": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "current_time",
+    "choices": [],
+    "slots": {}
+  },
+  "Welcher Tag ist heute?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "current_time",
+    "choices": [],
+    "slots": {}
+  },
+  "Was ist als Nächstes?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "next_event",
+    "choices": [],
+    "slots": {}
+  },
+  "What's next?": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "next_event",
+    "choices": [],
+    "slots": {}
+  },
+  "Wie sieht meine Woche aus?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "week_overview",
+    "choices": [],
+    "slots": {
+      "from": null,
+      "to": null
+    }
+  },
+  "How does next week look?": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "week_overview",
+    "choices": [],
+    "slots": {
+      "from": "2026-09-21",
+      "to": "2026-09-27"
+    }
+  },
+  "Wie lange noch bis zur Prüfung?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "exam_countdown",
+    "choices": [],
+    "slots": {
+      "query": ""
+    }
+  },
+  "Which exams do I have?": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "exam_countdown",
+    "choices": [],
+    "slots": {
+      "query": ""
+    }
+  },
+  "Was soll ich heute lernen?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "study_suggestion",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-16",
+      "after": null
+    }
+  },
+  "What should I study today?": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "study_suggestion",
+    "choices": [],
+    "slots": {
+      "date": "2026-09-16",
+      "after": null
+    }
+  },
+  "Was soll ich nach Anatomie lernen?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "study_suggestion",
+    "choices": [],
+    "slots": {
+      "date": null,
+      "after": "Anatomie"
+    }
+  },
+  "Wie viel habe ich diese Woche gelernt?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "study_stats",
+    "choices": [],
+    "slots": {
+      "from": "2026-09-14",
+      "to": "2026-09-20",
+      "all": false
+    }
+  },
+  "How much did I study this week?": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "study_stats",
+    "choices": [],
+    "slots": {
+      "from": "2026-09-14",
+      "to": "2026-09-20",
+      "all": false
+    }
+  },
+  "Wann habe ich Anatomie zuletzt gelernt?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "study_stats",
+    "choices": [],
+    "slots": {
+      "from": null,
+      "to": null,
+      "all": true
+    }
+  },
+  "Wird Anatomie besser?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "topic_progress",
+    "choices": [],
+    "slots": {
+      "topic": "Anatomie"
+    }
+  },
+  "Is Chemie improving?": {
+    "lang": "en",
+    "decision": "local",
+    "intent": "topic_progress",
+    "choices": [],
+    "slots": {
+      "topic": "Chemie"
+    }
+  },
+  "Wo habe ich mich verschlechtert?": {
+    "lang": "de",
+    "decision": "local",
+    "intent": "topic_progress",
+    "choices": [],
+    "slots": {
+      "topic": null
+    }
+  },
+  "Blub blab": {
+    "lang": "de",
+    "decision": "not-understood",
+    "intent": null,
+    "choices": [],
+    "slots": null
+  }
+}

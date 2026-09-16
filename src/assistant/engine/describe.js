@@ -2,6 +2,7 @@
 // …?", "Should I do this?") so the user sees exactly what a tap will do.
 
 import { getIntent } from './registry.js'
+import { rowOf } from './references.js'
 
 const FIELD = {
   location: ['Where is', 'Wo ist'],
@@ -14,10 +15,23 @@ const FIELD = {
   count: ['How many dates:', 'Wie viele Termine:'],
 }
 
+const SCREEN = {
+  home: ['Home', 'Start'], calendar: ['Calendar', 'Kalender'], topics: ['Topics', 'Themen'], exams: ['Exams', 'Prüfungen'],
+  statistics: ['Statistics', 'Statistik'], settings: ['Settings', 'Einstellungen'], assistant_settings: ['Assistant settings', 'Assistent-Einstellungen'],
+}
+
 export function describeAction(api, id, s = {}) {
   const L = api.L
   const q = v => (v ? ` „${v}“` : '')
   const day = d => (d ? api.fmtDay(d) : '')
+  // "@todo:<id>" → the row's name, for labels.
+  const name = v => {
+    const m = String(v ?? '').match(/^@(\w+):(.+)$/)
+    if (!m) return v === '@screen' || v === '@last' ? L('this', 'das') : v
+    const row = rowOf(api, m[1], m[2])
+    return row?.title ?? row?.text ?? row?.name ?? v
+  }
+  s = Object.fromEntries(Object.entries(s ?? {}).map(([k, v]) => [k, ['text', 'title', 'query'].includes(k) && typeof v === 'string' && v.startsWith('@') ? name(v) : v]))
   switch (id) {
     case 'edit_todo': {
       if (s.new_text) return L(`Rename todo${q(s.text)} to${q(s.new_text)}`, `Todo${q(s.text)} umbenennen in${q(s.new_text)}`)
@@ -44,6 +58,26 @@ export function describeAction(api, id, s = {}) {
     case 'day_bounds': return s.mode === 'first' ? L(`First entry ${day(s.date) || 'today'}`, `Erster Termin ${day(s.date) || 'heute'}`) : L(`When am I done ${day(s.date) || 'today'}?`, `Wann bin ich ${day(s.date) || 'heute'} fertig?`)
     case 'next_occurrence': return L(`When is${q(s.query)} next?`, `Wann ist${q(s.query)} das nächste Mal?`)
     case 'search_all': return L(`Search${q(s.query)}`, `${q(s.query).trim() || 'Alles'} suchen`)
+    case 'open_screen': return s.screen === 'topic_stats'
+      ? L(`Open${q(name(s.topic))}`, `${q(name(s.topic)).trim() || 'Thema'} öffnen`)
+      : L(`Open ${SCREEN[s.screen]?.[0] ?? s.screen}${s.date ? ` on ${day(s.date)}` : ''}`, `${SCREEN[s.screen]?.[1] ?? s.screen}${s.date ? ` am ${day(s.date)}` : ''} öffnen`)
+    case 'start_session': return L(`Start a session${s.topic ? ` for${q(name(s.topic))}` : ''}`, `Session${s.topic ? ` für${q(name(s.topic))}` : ''} starten`)
+    case 'explain_screen': return L('Summarise this screen', 'Diesen Bildschirm zusammenfassen')
+    case 'add_exam': return L(`Add exam${q(s.title)}${s.date ? ` on ${day(s.date)}` : ''}`, `Prüfung${q(s.title)}${s.date ? ` am ${day(s.date)}` : ''} eintragen`)
+    case 'move_exam': return L(`Move exam${q(name(s.exam))} to ${day(s.date)}`, `Prüfung${q(name(s.exam))} auf ${day(s.date)} verschieben`)
+    case 'delete_exam': return L(`Delete exam${q(name(s.exam))}`, `Prüfung${q(name(s.exam))} löschen`)
+    case 'set_topic_target': return L(`Set target of${q(name(s.topic))} to ${s.target} %`, `Ziel von${q(name(s.topic))} auf ${s.target} % setzen`)
+    case 'set_topic_weight': return L(`Set weight of${q(name(s.topic))} to ${s.weight}`, `Gewichtung von${q(name(s.topic))} auf ${s.weight} setzen`)
+    case 'rename_topic': return L(`Rename topic${q(name(s.topic))} to${q(s.name)}`, `Thema${q(name(s.topic))} in${q(s.name)} umbenennen`)
+    case 'weekly_review': return L('Weekly review', 'Wochenrückblick')
+    case 'workload_forecast': return L(`Forecast for the next ${s.days ?? 14} days`, `Prognose für die nächsten ${s.days ?? 14} Tage`)
+    case 'exam_plan': return L(`Study plan${s.exam ? ` for${q(s.exam)}` : ''}`, `Lernplan${s.exam ? ` für${q(s.exam)}` : ''}`)
+    case 'how_am_i_doing': return L('How am I doing overall?', 'Wie läuft es insgesamt?')
+    case 'about_me': return L('What do you know about me?', 'Was weißt du über mich?')
+    case 'remember': return s.kind === 'alias'
+      ? L(`Remember:${q(s.key)} means${q(s.value)}`, `Merken:${q(s.key)} heißt${q(s.value)}`)
+      : L(`Remember${q(s.value)}`, `Merken:${q(s.value)}`)
+    case 'forget': return s.what === 'all' ? L('Forget everything', 'Alles vergessen') : L(`Forget${q(s.what)}`, `${q(s.what).trim()} vergessen`)
     default: {
       const intent = getIntent(id)
       return intent?.examples?.[api.lang === 'de' ? 1 : 0] ?? intent?.examples?.[0] ?? id

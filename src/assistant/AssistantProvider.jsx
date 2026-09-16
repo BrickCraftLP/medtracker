@@ -1,22 +1,25 @@
 // Assistant state: open/closed, the chat thread of this opening, and the
-// `api` facade the intents run against. The facade is rebuilt from live data
-// on every render and read through a ref, so a result's buttons always act on
-// current rows. Closing the pill ends the chat; reopening starts a new one.
+// `api` facade the intents run against (api.js). The facade is rebuilt from
+// live data on every render and read through a ref, so a result's buttons
+// always act on current rows. A question gets a facade that also knows what is
+// on screen (screenContext.js) and what the last answers showed. Closing the
+// pill ends the chat; reopening starts a new one.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useData } from '../context/DataContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { useWorkspace } from '../context/WorkspaceContext.jsx'
-import { getLocale } from '../i18n/index.js'
-import { dayKey, parseDayKey } from '../utils/calendar/eventModel.js'
-import { expandRange } from '../utils/calendar/recurrence.js'
-import { defaultCalendarFor } from '../utils/calendar/calendarScope.js'
 import { calcTopicUrgency } from '../utils/calculations/todoPriorityCalcs.js'
-import { fold } from './engine/normalize.js'
-import { matchScore } from './engine/lexicon.js'
 import { rememberQuery } from './engine/suggest.js'
 import { getLLMSettings, llmModelName } from './llm/index.js'
 import { rateAnswer, learn } from './engine/feedbackLog.js'
+import { createAssistantApi } from './api.js'
+import { entitiesOf } from './engine/references.js'
+import { getScreen, setScreen, screenOfPath } from './screenContext.js'
+
+// The last answers of this chat, newest first, as { intent, slots, entities, date }.
+const recentOf = thread => thread.filter(e => e.result).slice(-3).reverse().map(e => entitiesOf(e.result))
 
 export const AssistantContext = createContext(null)
 
@@ -24,6 +27,13 @@ export function AssistantProvider({ children }) {
   const data = useData()
   const { language } = useLanguage()
   const { activeWorkspaceId } = useWorkspace()
+  const location = useLocation()
+  const routerNavigate = useNavigate()
+
+  // Every route is known to the assistant, even screens that publish nothing more.
+  useEffect(() => {
+    setScreen('route', { screen: screenOfPath(location.pathname), path: location.pathname })
+  }, [location.pathname])
 
   const [open, setOpen] = useState(false)
   const [thread, setThread] = useState([])     // [{ id, query, result, status, rated }]
@@ -62,50 +72,29 @@ export function AssistantProvider({ children }) {
 
   const urgency = useMemo(() => calcTopicUrgency(data.topics, data.recentSessions), [data.topics, data.recentSessions])
 
-  const api = useMemo(() => {
-    const lang = language === 'en' ? 'en' : 'de'
-    const locale = getLocale(lang)
-    const findTopic = name => {
-      const n = fold(name)
-      return data.topics.find(t => fold(t.name) === n)
-        ?? data.topics.map(t => ({ t, s: matchScore(name, t.name ?? '', { lang }).score })).filter(x => x.s >= 0.5).sort((a, b) => b.s - a.s)[0]?.t
-        ?? null
-    }
-    return {
-      today: dayKey(),
-      now: () => new Date(),
-      lang,
-      L: (en, de) => (lang === 'en' ? en : de),
-      fmtDay: key => parseDayKey(key).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }),
-      settings: getLLMSettings(),
-      topics: data.topics,
-      todos: data.todos,
-      events: data.events,
-      exams: data.exams,
-      sessions: data.recentSessions ?? [],
-      urgency,
-      occurrences: (from, to) => expandRange(data.events, from, to),
-      findTopic,
-      // A topic named somewhere inside free text ("read cardio chapter" → Cardio),
-      // also across languages ("chemistry" → Chemie).
-      findTopicIn: text => {
-        const t = fold(text)
-        return data.topics.find(tp => tp.name && t.includes(fold(tp.name)))
-          ?? data.topics.find(tp => tp.name && matchScore(tp.name, text ?? '', { lang }).score >= 1)
-          ?? null
-      },
-      calendars: data.calendars,
-      defaultCalendarId: () => defaultCalendarFor(data.calendars, activeWorkspaceId)?.id ?? null,
-      upsertTodo: data.upsertTodo,
-      upsertTodos: data.upsertTodos,
-      removeTodo: data.removeTodo,
-      upsertEvent: data.upsertEvent,
-      removeEvent: data.removeEvent,
-    }
-  }, [data, language, activeWorkspaceId, urgency, settingsTick, clockTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Commands that open a screen close the pill first, so the screen is visible.
+  const closeRef = useRef(() => {})
+  const navigate = useCallback((path, state = null) => {
+    closeRef.current()
+    routerNavigate(path, state ? { state } : undefined)
+  }, [routerNavigate])
 
+  const args = useMemo(() => ({
+    data,
+    lang: language,
+    activeWorkspaceId,
+    urgency,
+    settings: getLLMSettings(),
+    navigate,
+  }), [data, language, activeWorkspaceId, urgency, navigate, settingsTick, clockTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  const argsRef = useRef(args)
+  argsRef.current = args
+
+  const api = useMemo(() => createAssistantApi(args), [args])
   const apiRef = useRef(api)
   apiRef.current = api
+  // The facade for one question: current rows, the screen right now, the last answers.
+  const liveApi = useCallback(() => createAssistantApi({ ...argsRef.current, screen: getScreen(), recent: recentOf(threadRef.current) }), [])
   const chatRef = useRef(0)   // bumped on close / new chat so late answers are dropped
   const seq = useRef(0)
   // Read synchronously by run/flowAction, so two quick taps never act on a stale flow.
@@ -120,6 +109,8 @@ export function AssistantProvider({ children }) {
     const chat = chatRef.current
     const alive = () => chat === chatRef.current
     const id = ++seq.current
+    // Read before this question joins the thread, so "the last answer" is the previous one.
+    const api = liveApi()
     setThread(list => [...list, { id, query, result: null, status: 'thinking' }])
     try {
       // A running flow gets the message as its answer, unless it is clearly a new request.
@@ -136,7 +127,7 @@ export function AssistantProvider({ children }) {
         setFlowState(null)
       }
       const { runQuery } = await import('./engine/router.js')
-      const res = await runQuery(query, apiRef.current, {
+      const res = await runQuery(query, api, {
         onStatus: (s, p) => { if (alive()) patchEntry(id, { status: s === 'llm-loading' ? p : s }) },
         // A background model check may add a "Did you mean …?" card later.
         onBackground: update => {
@@ -156,7 +147,7 @@ export function AssistantProvider({ children }) {
         })
       }
     }
-  }, [patchEntry])
+  }, [patchEntry, liveApi, setFlowState])
 
   // Taps in the flow composer. Silent actions (toggling a reminder) only update
   // the flow; the rest add a bubble with `label` and the next question.
@@ -183,22 +174,23 @@ export function AssistantProvider({ children }) {
     setThread(list => [...list, { id: ++seq.current, query: label ?? '…', result: questionFor(next, apiRef.current), status: null }])
   }, [setFlowState])
 
-  // Runs one intent with known slots — a tapped "Did you mean …?" option or a
-  // picked todo. `query` is the original question: the choice is remembered
-  // for that phrasing (feedbackLog learned).
-  const runIntent = useCallback(async (intentId, slots, label, { query = null } = {}) => {
+  // Runs one intent with known slots — a tapped "Did you mean …?" option, a
+  // picked todo or a confirm card (`confirmed: 'card'`). `query` is the
+  // original question: the choice is remembered for that phrasing
+  // (feedbackLog learned).
+  const runIntent = useCallback(async (intentId, slots, label, { query = null, confirmed = true } = {}) => {
     const chat = chatRef.current
     const alive = () => chat === chatRef.current
     const id = ++seq.current
+    const api = liveApi()
     setThread(list => [...list, { id, query: label ?? '…', result: null, status: 'thinking' }])
     try {
       await import('./intents/index.js')
       const { getIntent } = await import('./engine/registry.js')
       const intent = getIntent(intentId)
       if (!intent) throw new Error(`Unknown intent ${intentId}`)
-      const api = apiRef.current
       if (query) learn(query, intentId, slots)
-      const res = await intent.execute(slots ?? {}, api, { raw: query ?? label ?? '', today: api.today, lang: api.lang, api, confirmed: true })
+      const res = await intent.execute(slots ?? {}, api, { raw: query ?? label ?? '', today: api.today, lang: api.lang, api, confirmed })
       if (!alive()) return
       if (res?.startFlow) setFlowState(res.startFlow)
       patchEntry(id, {
@@ -209,7 +201,7 @@ export function AssistantProvider({ children }) {
       console.error('[assistant] choice', e)
       if (alive()) patchEntry(id, { status: null, result: { title: apiRef.current.L('Something went wrong', 'Etwas ist schiefgelaufen'), blocks: [{ type: 'text', data: { text: String(e?.message ?? e) } }] } })
     }
-  }, [patchEntry, setFlowState])
+  }, [patchEntry, setFlowState, liveApi])
 
   // 👍 / 👎 on one answer; stored with the whole conversation up to that point
   // (not just that one prompt) so a bad rating keeps the context that led to
@@ -235,6 +227,7 @@ export function AssistantProvider({ children }) {
     setEditor(null)
     setFlowState(null)
   }, [setFlowState])
+  closeRef.current = close
   const openAssistant = useCallback(() => { setClockTick(n => n + 1); setOpen(true) }, [])
 
   const last = thread[thread.length - 1] ?? null

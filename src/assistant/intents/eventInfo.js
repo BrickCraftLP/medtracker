@@ -5,11 +5,13 @@
 // fertig?"). Finding entries by name reuses search.js (German and English).
 
 import { registerIntent } from '../engine/registry.js'
+import { slot } from '../engine/schema.js'
 import { extract } from '../engine/parse/index.js'
 import { fmtMin, fmtDuration } from '../engine/parse/times.js'
 import { searchWords } from '../engine/lexicon.js'
 import { addDays } from '../../utils/calendar/eventModel.js'
 import { occItem } from './calendar.js'
+import { contextRef, isDeictic, contextDate } from '../engine/references.js'
 import { countdown } from './overview.js'
 import { searchAll, QUESTION_WORDS, FREQ } from './search.js'
 
@@ -61,9 +63,9 @@ registerIntent({
   id: 'event_info',
   describe: 'A detail of a calendar entry found by name: where it is (place/room), when it starts or ends, how long it takes, its notes, calendar, how often it repeats, or how many dates are left',
   slots: {
-    query: 'words from the entry name, e.g. "genetics"',
-    field: 'location|start|end|duration|notes|calendar|recurrence|count',
-    from: 'YYYY-MM-DD optional', to: 'YYYY-MM-DD optional',
+    query: slot('text', 'words from the entry name, e.g. "genetics"', { required: true, primary: true }),
+    field: slot('enum:location|start|end|duration|notes|calendar|recurrence|count', 'which detail', { required: true }),
+    from: slot('date', 'first day to look at'), to: slot('date', 'last day to look at'),
   },
   examples: ['Where do I need to be for genetics?', 'Wo muss ich in Genetik hin?'],
   completions: {
@@ -80,7 +82,12 @@ registerIntent({
     // "Wie lange noch bis zur Prüfung?" is a countdown, not a duration.
     if (field === 'duration' && /\b(noch|bis zu\w*|until|left|till)\b/.test(text)) return null
     const x = extract(text, today)
-    const query = queryFor(x.rest)
+    let query = queryFor(x.rest)
+    // "Wo ist das?", "when does it end?": the entry on screen or in the last answer.
+    if ((!query || query === 'event') && isDeictic(text)) {
+      const ref = contextRef(api, ['event'])
+      if (ref) query = ref.row.title
+    }
     if (!query || query === 'study' || query === 'event' || (field === 'count' && query === 'exam')) return null
     const span = spanOf(x, today)
     const found = searchAll(api, query, span).occ.length > 0
@@ -222,19 +229,20 @@ const LAST = /\b(wann bin ich (?:\w+ )?(?:fertig|durch|aus)|when am i (?:\w+ )?(
 registerIntent({
   id: 'day_bounds',
   describe: 'The first and/or last calendar entry of a day: when the day starts or when the user is done',
-  slots: { date: 'YYYY-MM-DD optional', mode: '"first", "last" or "both"' },
+  slots: { date: slot('date', 'the day', { primary: true }), mode: slot('enum:first|last|both', 'first entry, last entry or both') },
   examples: ['When am I done tomorrow?', 'Wann ist morgen mein erster Termin?'],
   completions: {
     de: ['Wann bin ich {day} fertig?', 'Was ist {day} mein erster Termin?'],
     en: ['When am I done {day}?', 'What is my first class {day}?'],
   },
-  match(text, { today }) {
+  match(text, { today, api }) {
     if (/\btodo\b/.test(text)) return null
     const first = FIRST.test(text) || (/\b(erste[nrms]?|first|frueheste[nrms]?|earliest)\b/.test(text) && LESSON.test(text))
     const last = LAST.test(text) || (/\b(letzte[nrms]?|last|spaeteste[nrms]?)\b/.test(text) && LESSON.test(text) && !/\b(war|was|gewesen)\b/.test(text))
     if (!first && !last) return null
     const x = extract(text, today)
-    return { score: 0.92, slots: { date: x.date ?? x.range?.from ?? null, mode: first && last ? 'both' : first ? 'first' : 'last' } }
+    const date = x.date ?? x.range?.from ?? (api ? contextDate(api, text) : null)
+    return { score: 0.92, slots: { date, mode: first && last ? 'both' : first ? 'first' : 'last' } }
   },
   execute(slots, api) {
     const date = slots.date || api.today

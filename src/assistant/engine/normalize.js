@@ -4,6 +4,11 @@
 // Typos in the words the parsers key on ("m9orgen", "freitga", "stunen") are
 // corrected against VOCAB before SYNONYMS rewrites phrasings onto one
 // canonical word. Extend both freely.
+//
+// Short forms the user taught ("merk dir: PK heißt Pharmakologie") are
+// expanded first, so every parser and search sees the full word.
+
+import { getAliases, profileRevision } from './userStore.js'
 
 const SYNONYMS = [
   [/\b(to-?dos?|aufgaben?|tasks?)\b/g, 'todo'],
@@ -29,6 +34,12 @@ const VOCAB = new Set([
   'fruehstueck', 'zwischen', 'verschiebe', 'verschieben', 'loesche', 'loeschen',
   'pruefung', 'klausur', 'vorlesung', 'erinnere', 'schedule', 'appointment', 'meeting',
   'freunden', 'friends', 'erledigt', 'zeitfenster',
+  'oeffne', 'oeffnen', 'session', 'statistik', 'statistiken', 'einstellungen', 'settings',
+  'pruefungen', 'klausuren', 'verschiebe', 'rueckblick', 'wochenrueckblick', 'prognose', 'lernplan', 'gewichtung',
+  'zielgenauigkeit', 'genauigkeit', 'accuracy', 'review', 'forecast', 'workload', 'remember', 'vergiss', 'merke',
+  'uebernaechste', 'monatsende', 'wochenende', 'jeden', 'woechentlich', 'taeglich', 'vorher', 'davor', 'erinnerung',
+  'montags', 'dienstags', 'mittwochs', 'donnerstags', 'freitags', 'samstags', 'sonntags', 'werktags', 'wochentags',
+  'mondays', 'tuesdays', 'wednesdays', 'thursdays', 'fridays', 'saturdays', 'sundays',
 ])
 const PROTECT = new Set(['sorgen', 'borgen', 'morgan', 'heuer', 'leben', 'lesen', 'house', 'monate', 'wache', 'trager'])
 
@@ -75,8 +86,22 @@ export function fold(s) {
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
+let aliasCache = { rev: -1, re: null, map: null }
+
+// "wann habe ich pk" → "wann habe ich pharmakologie". Input must be folded.
+export function expandAliases(s) {
+  if (aliasCache.rev !== profileRevision()) {
+    const map = getAliases()
+    const keys = Object.keys(map).filter(Boolean).sort((a, b) => b.length - a.length)
+    const esc = k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    aliasCache = { rev: profileRevision(), map, re: keys.length ? new RegExp(`(^|[^a-z0-9])(${keys.map(esc).join('|')})(?![a-z0-9])`, 'g') : null }
+  }
+  if (!aliasCache.re) return s
+  return s.replace(aliasCache.re, (_, pre, k) => `${pre}${aliasCache.map[k]}`)
+}
+
 export function normalize(text) {
-  let s = fold(text).replace(/[!?,;"“”„()]/g, ' ')
+  let s = expandAliases(fold(text).replace(/[!?,;"“”„()]/g, ' '))
   s = s.split(/\s+/).map(correctToken).join(' ')
   // "day after tomorrow" must win before "tomorrow" alone is rewritten.
   s = s.replace(/\bday after tomorrow\b/g, 'overmorrow')

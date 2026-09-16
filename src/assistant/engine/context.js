@@ -13,7 +13,7 @@ import { extract } from './parse/index.js'
 import { normalize } from './normalize.js'
 
 const MAX_CHARS = 4500
-const QUERY_MAX_CHARS = 3000
+const QUERY_MAX_CHARS = 2600   // ~400 more go to screen, last answer and profile lines
 const pct = v => (v == null ? 'n/a' : `${Math.round(v)}%`)
 
 export function buildDataContext(api) {

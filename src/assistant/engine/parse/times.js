@@ -2,6 +2,8 @@
 // "from 10 to 12", "von 9 bis 10 uhr", "zwischen 9 und 11", "10-12".
 // Returns minutes since midnight. Input is normalised text.
 
+import { MONTH_WORDS } from './dates.js'
+
 function toMinutes(h, m = 0, ampm = null) {
   let hour = Number(h)
   const min = Number(m ?? 0)
@@ -13,10 +15,14 @@ function toMinutes(h, m = 0, ampm = null) {
 
 const clean = v => (v === 'uhr' ? null : v)
 
+// A day range ("vom 3 bis 5 Oktober") is not a clock range.
+const NOT_MONTH = `(?!\\.?\\s*(?:${MONTH_WORDS})\\b)`
+const NOT_AFTER_MONTH = `(?<!\\b(?:${MONTH_WORDS})\\s{1,3})`
+
 // Range first so "10-12" is not read as a start time alone.
 export function parseTimeRange(text) {
-  const m = text.match(/\b(?:from |von |ab )?(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|uhr)?\s*(?:-|–|to|bis|until|till)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|uhr)?\b/)
-    || text.match(/\b(?:zwischen|between) (\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|uhr)?\s*(?:und|and)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|uhr)?\b/)
+  const m = text.match(new RegExp(`\\b(?:from |von |ab )?${NOT_AFTER_MONTH}(\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm|uhr)?\\s*(?:-|–|to|bis|until|till)\\s*(\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm|uhr)?\\b${NOT_MONTH}`))
+    || text.match(new RegExp(`\\b(?:zwischen|between) (\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm|uhr)?\\s*(?:und|and)\\s*(\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm|uhr)?\\b${NOT_MONTH}`))
   if (!m) return null
   const endAmpm = clean(m[6])
   const start = toMinutes(m[1], m[2], clean(m[3]) ?? endAmpm)

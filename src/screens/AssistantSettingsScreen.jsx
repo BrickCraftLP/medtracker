@@ -6,6 +6,8 @@ import { useLanguage } from '../context/LanguageContext.jsx'
 import { getLLMSettings, setLLMSettings, hasWebGPU, WEBLLM_MODELS, AUTO_MODEL, explainLoadError } from '../assistant/llm/index.js'
 import { getUnknown, clearUnknown } from '../assistant/engine/unknownLog.js'
 import { getFeedback, removeFeedback, clearFeedback, exportFeedback } from '../assistant/engine/feedbackLog.js'
+import { storedFacts } from '../assistant/engine/profile.js'
+import { removeAlias, removePlace, removeNote, setPreference, clearStoredProfile } from '../assistant/engine/userStore.js'
 import { hhmm, timeOf, minutesOf } from '../utils/calendar/eventModel.js'
 import { GlassCard } from '../components/Common/Glass.jsx'
 
@@ -72,6 +74,22 @@ export default function AssistantSettingsScreen() {
     window.addEventListener('mt-assistant-feedback', refresh)
     return () => window.removeEventListener('mt-assistant-feedback', refresh)
   }, [])
+
+  // What the user taught the assistant (engine/userStore.js).
+  const L = (en, de) => (language === 'en' ? en : de)
+  const [facts, setFacts] = useState(() => storedFacts({ L }))
+  useEffect(() => {
+    const refresh = () => setFacts(storedFacts({ L: (en, de) => (language === 'en' ? en : de) }))
+    refresh()
+    window.addEventListener('mt-assistant-profile', refresh)
+    return () => window.removeEventListener('mt-assistant-profile', refresh)
+  }, [language])
+  function forgetFact(f) {
+    if (f.kind === 'alias') removeAlias(f.key)
+    else if (f.kind === 'place') removePlace(f.key)
+    else if (f.kind === 'pref') setPreference(f.key, null)
+    else removeNote(f.key)
+  }
 
   // Ratings + not-understood questions as one JSON file to hand over for fixing.
   async function exportRatings(mode) {
@@ -302,6 +320,39 @@ export default function AssistantSettingsScreen() {
           <Row label={t('assistant.settings.to')}>
             <input type="time" value={hhmm(timeOf(s.dayEnd))} onChange={e => update({ dayEnd: minutesOf(e.target.value) ?? s.dayEnd })} style={inputStyle} />
           </Row>
+        </Section>
+
+        <Section title={t('assistant.settings.profile')} footer={t('assistant.settings.profileNote')}>
+          {facts.length === 0 ? (
+            <Row label={<span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{t('assistant.settings.profileEmpty')}</span>} />
+          ) : facts.map((f, i) => (
+            <div key={`${f.kind}-${f.key}`}>
+              {i > 0 && <Divider />}
+              <Row label={<span style={{ fontSize: 14 }}>{f.text}</span>}>
+                <button
+                  type="button"
+                  onClick={() => forgetFact(f)}
+                  aria-label={t('assistant.settings.clear')}
+                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: 16, padding: 2 }}
+                >
+                  ✕
+                </button>
+              </Row>
+            </div>
+          ))}
+          {facts.length > 0 && (
+            <>
+              <Divider />
+              <Row
+                label={<span style={{ color: 'var(--wrong)' }}>{t('assistant.settings.profileClear')}</span>}
+                onClick={() => { if (window.confirm(t('assistant.settings.profileClearConfirm'))) clearStoredProfile() }}
+              />
+            </>
+          )}
+        </Section>
+
+        <Section title={t('assistant.settings.commands')} footer={t('assistant.settings.commandsNote')}>
+          <Row label={<code style={{ fontSize: 13 }}>/</code>} />
         </Section>
 
         <Section title={t('assistant.settings.feedback')} footer={t('assistant.settings.feedbackNote')}>

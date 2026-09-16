@@ -23,16 +23,38 @@ export function registerIntent(intent) {
 export const getIntent = id => intents.get(id)
 export const allIntents = () => [...intents.values()]
 
-// Every local match, best first. Ties keep registration order.
+// Share of the sentence's words an intent's slots account for — "Verschieb
+// Brunch mit Anna auf Freitag" explains more words as move_event(title, date)
+// than as a bare date lookup.
+function coverage(text, slots) {
+  const words = text.split(' ').filter(w => w.length > 2)
+  if (!words.length) return 0
+  const values = ` ${Object.values(slots ?? {}).filter(v => v != null && v !== false).map(v => String(v).toLowerCase()).join(' ')} `
+  return words.filter(w => values.includes(w)).length / words.length
+}
+
+const NEAR_TIE = 0.02
+
+// Every local match, best first. Near-ties (within 0.02) go to the intent whose
+// slots explain more of the sentence; exact ties then keep registration order.
+// Scores themselves are never changed, so thresholds keep their meaning.
 export function matchAll(text, ctx) {
   const out = []
   for (const intent of intents.values()) {
     if (!intent.match) continue
     let m = null
-    try { m = intent.match(text, ctx) } catch { m = null }
+    try { m = intent.match(text, ctx) } catch (e) { if (import.meta.env?.DEV) console.warn(`[assistant] ${intent.id}.match`, e); m = null }
     if (m) out.push({ intent, ...m })
   }
-  return out.sort((a, b) => b.score - a.score)
+  out.sort((a, b) => b.score - a.score)
+  if (out.length > 1 && out[0].score - out[1].score <= NEAR_TIE) {
+    const top = out[0].score
+    const near = out.filter(c => top - c.score <= NEAR_TIE)
+    const rank = new Map(near.map(c => [c, c.score + 0.03 * coverage(text, c.slots)]))
+    near.sort((a, b) => rank.get(b) - rank.get(a))
+    out.splice(0, near.length, ...near)
+  }
+  return out
 }
 
 // Best local match across every intent. Ties go to the earlier-registered one.

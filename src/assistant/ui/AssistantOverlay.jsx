@@ -11,6 +11,7 @@ import { useLanguage } from '../../context/LanguageContext.jsx'
 import { useData } from '../../context/DataContext.jsx'
 import { todoSwipeActive } from '../../utils/gestureState.js'
 import { suggest } from '../engine/suggest.js'
+import { getScreen } from '../screenContext.js'
 import { fold } from '../engine/normalize.js'
 import ResultBlocks from './blocks.jsx'
 import FlowComposer, { flowPlaceholder, enterLabel } from './FlowComposer.jsx'
@@ -173,7 +174,7 @@ function Panel() {
   // No autocomplete while a flow waits for an answer (a place, a todo text).
   const suggestions = useMemo(() => {
     if (a.flow) return []
-    try { return suggest(value, a.api) } catch (e) { console.warn('[assistant] suggest', e); return [] }
+    try { return suggest(value, a.api, { screen: getScreen() }) } catch (e) { console.warn('[assistant] suggest', e); return [] }
   }, [value, a.api, a.flow])
 
   // In a chat with an empty input: the latest answer's follow-ups first, then

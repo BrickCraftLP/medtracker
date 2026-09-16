@@ -91,6 +91,18 @@ export function llmModelName(s = getLLMSettings()) {
   return null
 }
 
+// How much one prompt can ask of the model: 0 = tiny (SmolLM2), 1 = small
+// (Llama 1B), 2 = capable (Qwen 1.5B, anything on Ollama). Capable models get
+// the one-shot planner; smaller ones the classify → compose steps.
+export function modelTier(s = getLLMSettings()) {
+  if (s.backend === 'ollama') return 2
+  if (s.backend !== 'webllm') return 0
+  const id = llmModelName(s) ?? ''
+  if (/qwen|phi|gemma|llama-3\.[12]-[38]b/i.test(id)) return 2
+  if (/llama/i.test(id)) return 1
+  return 0
+}
+
 // True when a question can go to the model without first downloading or
 // loading it — background checks only run then.
 export async function llmReady() {

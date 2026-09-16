@@ -6,6 +6,7 @@
 
 import { getUnknown } from './unknownLog.js'
 import { normalize } from './normalize.js'
+import { getStoredProfile } from './userStore.js'
 
 const FEEDBACK_KEY = 'mt_assistant_feedback'
 const LEARNED_KEY = 'mt_assistant_learned'
@@ -80,6 +81,8 @@ export function exportFeedback(intentIds = []) {
     feedback: read(FEEDBACK_KEY),
     notUnderstood: getUnknown(),
     learned: read(LEARNED_KEY),
+    // Short forms and preferences change what phrasings mean; free notes stay private.
+    taught: (({ aliases, places, preferences }) => ({ aliases, places, preferences }))(getStoredProfile()),
   }
 }
 

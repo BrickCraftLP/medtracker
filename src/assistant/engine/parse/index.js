@@ -6,31 +6,53 @@ import { parseDate, parseDateRange } from './dates.js'
 import { normalize } from '../normalize.js'
 import { parseDuration } from './durations.js'
 import { parseTime, parseTimeRange } from './times.js'
-import { addDays } from '../../../utils/calendar/eventModel.js'
+import { parseRecurrence, stripRecurrence, firstDateOf } from './recurrence.js'
+import { parseReminders } from './reminders.js'
+import { addDays, parseDayKey } from '../../../utils/calendar/eventModel.js'
 
 const EVENING = /\b(abends?|evening|tonight|nachmittags?|afternoon|nachts)\b/
+const REL_NUM = { ein: 1, eine: 1, einer: 1, einem: 1, one: 1, a: 1, an: 1, zwei: 2, two: 2, drei: 3, three: 3, halben: 0.5, half: 0.5 }
 
-export function extract(text, today) {
+// "in 2 Stunden", "in 30 min", "in einer halben Stunde" → a start time from now.
+function parseRelativeTime(text, now) {
+  const m = text.match(/\bin (\d{1,3}|ein\w*|one|an?|zwei|two|drei|three|half an|einer halben) ?(stunden?|std|hours?|h|minuten?|minutes?|mins?)\b/)
+  if (!m) return null
+  const n = /^\d/.test(m[1]) ? Number(m[1]) : m[1].includes('halb') || m[1].startsWith('half') ? 0.5 : REL_NUM[m[1]] ?? 1
+  const add = Math.round(n * (/^(std|stunde|h)/.test(m[2]) ? 60 : 1))
+  const total = now.getHours() * 60 + now.getMinutes() + add
+  // Round up to the next 5 minutes; past midnight it is tomorrow.
+  const rounded = Math.ceil(total / 5) * 5
+  return { minutes: rounded % 1440, dayOffset: Math.floor(rounded / 1440), match: m[0] }
+}
+
+export function extract(text, today, { now = new Date() } = {}) {
   let rest = ` ${text} `
   const take = m => { if (m?.match) rest = rest.replace(m.match, ' '); return m }
 
   const range = take(parseTimeRange(rest))
+  const reminders = parseReminders(rest)
+  if (reminders) for (const part of reminders.matches) rest = rest.replace(part, ' ')
+  const relative = range ? null : take(parseRelativeTime(rest, now))
   const duration = take(parseDuration(rest))
-  const time = range ? null : take(parseTime(rest))
+  const time = range || relative ? null : take(parseTime(rest))
+  const recurrence = parseRecurrence(rest, today)
+  if (recurrence) rest = stripRecurrence(rest, recurrence)
   const dateRange = take(parseDateRange(rest, today))
   const date = take(parseDate(rest, today))
 
-  let startMin = range?.start ?? time?.minutes ?? null
+  let startMin = range?.start ?? relative?.minutes ?? time?.minutes ?? null
   let endMin = range?.end ?? null
   // "um 7 abends", "nachmittags von 3 bis 5" → afternoon/evening clock.
-  if (EVENING.test(text) && !time?.fuzzy && startMin != null && startMin >= 60 && startMin < 12 * 60) {
+  if (EVENING.test(text) && !time?.fuzzy && !relative && startMin != null && startMin >= 60 && startMin < 12 * 60) {
     startMin += 12 * 60
     if (endMin != null && endMin < 12 * 60) endMin += 12 * 60
   }
 
-  let day = date?.date ?? null
+  let day = date?.date ?? (relative ? addDays(today, relative.dayOffset) : null)
   // "nächste Woche Montag": the weekday belongs inside the named week.
   if (dateRange && day && day < dateRange.from) day = addDays(day, 7)
+  // "jeden Montag um 10": the series starts on the next such day.
+  if (!day && recurrence) day = firstDateOf(recurrence, today, addDays, parseDayKey)
 
   return {
     date: day,
@@ -39,6 +61,9 @@ export function extract(text, today) {
     endMin,
     minutes: duration?.minutes ?? (startMin != null && endMin != null ? endMin - startMin : null),
     fuzzyTime: !!time?.fuzzy,
+    relative: !!relative,
+    rrule: recurrence?.rrule ?? null,
+    reminders: reminders?.reminders ?? null,
     rest: rest.replace(/\s+/g, ' ').trim(),
   }
 }

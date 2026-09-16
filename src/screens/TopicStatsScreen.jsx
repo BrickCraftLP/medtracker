@@ -22,6 +22,7 @@ import {
   PRIORITY_COLORS, PRIORITY_KEYS, localDayKey, calcTopicUrgency,
   effectivePriority, dueStatus, sortTodos, buildTodo, shortTime,
 } from '../utils/calculations/todoPriorityCalcs.js'
+import { useAssistantScreen } from '../assistant/screenContext.js'
 
 const TIMEFRAMES = ['7d', '14d', '30d', '90d']
 
@@ -241,6 +242,7 @@ export default function TopicStatsScreen() {
 
   const topic = topics.find(t => t.id === state?.topicId)
   const { from, to } = getDateRange(timeframe)
+  useAssistantScreen('topic-stats', { screen: 'topic-stats', topicId: state?.topicId ?? null, timeframe })
   const goalTarget = topic?.target_accuracy ?? 80
   const topicWeight = parseFloat(topic?.weight ?? 50)
   const topicWeightDisplay = Number.isInteger(topicWeight)

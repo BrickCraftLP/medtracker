@@ -15,6 +15,7 @@ import {
 } from '../utils/calculations/filterTimeframeCalcs.js'
 import { calcTopicAccuracy, calcWeightedAccuracy, calcOverallAccuracy, calcRunningOverallAccuracy, calcRunningWeightedAccuracy, fmtPct } from '../utils/calculations/accuracyRatioCalcs.js'
 import { calcCurrentStreak } from '../utils/calculations/streakTrackerCalcs.js'
+import { useAssistantScreen } from '../assistant/screenContext.js'
 
 const TOPIC_COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#ef4444', '#14b8a6']
 
@@ -86,6 +87,7 @@ export default function StatisticsScreen() {
   const { t } = useLanguage()
   const { gridLines, smoothLines, showDots, carryForward, markInactive } = useGraphSettings()
   const [timeframe, setTimeframe] = useState('30d')
+  useAssistantScreen('statistics', { screen: 'statistics', timeframe })
 
   const { from, to } = getDateRange(timeframe)
 

@@ -2,6 +2,7 @@
 // topic is getting better or worse. Works on the 90-day session window.
 
 import { registerIntent } from '../engine/registry.js'
+import { slot } from '../engine/schema.js'
 import { extract } from '../engine/parse/index.js'
 import { fmtDuration } from '../engine/parse/times.js'
 import {
@@ -10,6 +11,7 @@ import {
 } from '../engine/studyStats.js'
 import { addDays, daysBetween, parseDayKey } from '../../utils/calendar/eventModel.js'
 import { calcCurrentStreak } from '../../utils/calculations/streakTrackerCalcs.js'
+import { contextRef, isDeictic } from '../engine/references.js'
 
 const PART = {
   en: { morning: 'in the morning', afternoon: 'in the afternoon', evening: 'in the evening' },
@@ -47,13 +49,16 @@ const WHOLE = /\b(zuletzt|last time|letzte[ns]? mal|when did i|wann (?:habe?|hab
 registerIntent({
   id: 'study_stats',
   describe: 'Study history: total study time, sessions, study days, streak, last time studied and usual time of day — overall or for one topic, for a period',
-  slots: { topic: 'topic name optional', from: 'YYYY-MM-DD optional (past)', to: 'YYYY-MM-DD optional', all: 'true for the whole history' },
+  slots: {
+    topic: slot('ref:topic', 'one topic only', { primary: true }), from: slot('date', 'first day (past)'), to: slot('date', 'last day'),
+    all: slot('bool', 'the whole loaded history'),
+  },
   examples: ['How much did I study this week?', 'Wie viel habe ich diese Woche gelernt?'],
   completions: {
     de: ['Wie viel habe ich diese Woche gelernt?', 'Wann habe ich {topic} zuletzt gelernt?', 'Wie oft habe ich {topic} gelernt?', 'Wann lerne ich meistens?'],
     en: ['How much did I study this week?', 'When did I last study {topic}?', 'How often did I study {topic}?'],
   },
-  match(text, { today }) {
+  match(text, { today, raw, api }) {
     if (!STUDIED.test(text) || !STAT.test(text) || PROGRESS.test(text)) return null
     if (/\b(soll|should|suggest|empfiehl\w*|recommend)\b/.test(text) || /\btodo\b/.test(text)) return null
     if (/\b(wann|when)\b/.test(text) && /\b(zeit|frei|free|platz)\b/.test(text)) return null
@@ -66,7 +71,9 @@ registerIntent({
     if (x.range && !x.range.past && /\b(this week|diese woche|dieser woche|die woche)\b/.test(text)) {
       from = addDays(today, -((parseDayKey(today).getDay() + 6) % 7))
     }
-    return { score: 0.92, slots: { from, to: x.range?.to ?? x.date ?? null, all: whole } }
+    // "Wie oft habe ich das gelernt?": the topic in context.
+    const ref = api && isDeictic(text) && !api.findTopicIn(raw ?? '') ? contextRef(api, ['topic']) : null
+    return { score: 0.92, slots: { ...(ref ? { topic: ref.token } : {}), from, to: x.range?.to ?? x.date ?? null, all: whole } }
   },
   execute(slots, api, ctx = {}) {
     const topic = slots.topic ? api.findTopic(slots.topic) : api.findTopicIn(ctx.raw ?? '')
@@ -148,13 +155,13 @@ registerIntent({
 
 // ── Better or worse ────────────────────────────────────────────────────────
 
-const PROG = /\b(besser|schlechter|verbesser\w*|verschlechter\w*|fortschritt\w*|progress|lernstand|leistungsstand|improv\w*|wors\w*|better|trend\w*|entwickel\w*|entwickl\w*|how am i doing|wie gut bin ich|wie gut|how good|wie stehe? ich|where do i stand|accuracy|genauigkeit|trefferquote|quote)\b/
+const PROG = /\b(besser|schlechter|verbesser\w*|verschlechter\w*|fortschritt\w*|progress|lernstand|leistungsstand|improv\w*|wors\w*|better|trend\w*|entwickel\w*|entwickl\w*|how am i doing|wie gut bin ich|wie gut|how good|wie stehe? ich|where do i stand|accuracy|genauigkeit|trefferquote|quote|wie laeuft\w*|how'?s (?:it|that|this) going|how is (?:it|that|this) going)\b/
 const PROG_SCOPE = /\b(study|gelernt|geuebt|topics?|themen?|faechern?|fach|lernstand|fortschritt\w*|progress|accuracy|genauigkeit|quote|insgesamt|overall|wo|where|welche\w*|which|allgemein|general)\b/
 
 registerIntent({
   id: 'topic_progress',
   describe: 'Is a topic (or are topics overall) getting better or worse: accuracy now vs before, target, sessions, last practised',
-  slots: { topic: 'topic name optional; omit for all topics' },
+  slots: { topic: slot('ref:topic', 'one topic; omit for all topics', { primary: true }) },
   examples: ['Is cardio improving?', 'Wo habe ich mich verschlechtert?'],
   completions: {
     de: ['Wird {topic} besser?', 'Wie ist mein Lernstand in {topic}?', 'Wo habe ich mich verschlechtert?'],
@@ -163,7 +170,11 @@ registerIntent({
   match(text, { raw, api }) {
     if (!PROG.test(text) || /\b(todo|event)\b/.test(text)) return null
     if (/\b(soll|should|suggest|recommend|empfiehl\w*)\b/.test(text)) return null
-    const topic = api?.findTopicIn(raw ?? '') ?? null
+    let topic = api?.findTopicIn(raw ?? '') ?? null
+    // "Wird das besser?", "wie läuft's hier?": the topic on screen or in the last answer.
+    const pointing = isDeictic(text) || /\b(das|es|it)\b/.test(text) || (api?.screen?.screen === 'topic-stats' && !PROG_SCOPE.test(text))
+    const ref = !topic && api && pointing ? contextRef(api, ['topic']) : null
+    if (ref) return { score: 0.93, slots: { topic: ref.token } }
     if (!topic && !PROG_SCOPE.test(text)) return null
     return { score: topic ? 0.93 : 0.88, slots: { topic: topic?.name ?? null } }
   },

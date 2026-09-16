@@ -27,7 +27,9 @@ const MONTHS = [
   ['november', 'nov'], ['december', 'dezember', 'dec', 'dez'],
 ]
 const monthIndex = word => MONTHS.findIndex(names => names.includes(word))
-const MONTH_WORDS = MONTHS.flat().join('|')
+export const MONTH_WORDS = MONTHS.flat().join('|')
+// Weekday names incl. "mo".."so" — only safe right next to "bis" / "-".
+const WEEKDAY_NAMES = WEEKDAYS.flat().join('|')
 
 // Spelled-out day numbers ("October first", "the first of October") — only
 // digits ("1st", "3.") were understood before, so a wholly-worded date fell
@@ -71,6 +73,22 @@ export function parseDate(text, todayKey = dayKey()) {
     const n = /^\d+$/.test(m[1]) ? Number(m[1]) : 1
     const mult = /^(week|woche)/.test(m[2]) ? 7 : 1
     return { date: addDays(todayKey, n * mult), match: m[0] }
+  }
+
+  // end of the week → Friday; end of the month → its last day
+  if ((m = text.match(/\b(?:(?:bis )?(?:zum |am )?ende (?:der|dieser) woche|end of (?:the|this) week|wochenende? ende)\b/))) {
+    const dow = parseDayKey(todayKey).getDay()
+    return { date: addDays(todayKey, dow <= 5 ? 5 - dow : 6), match: m[0] }
+  }
+  if ((m = text.match(/\b(?:(?:bis )?(?:zum |am )?(?:monatsende|ende (?:des|dieses) monats)|end of (?:the|this) month)\b/))) {
+    const t = parseDayKey(todayKey)
+    return { date: dayKey(new Date(t.getFullYear(), t.getMonth() + 1, 0)), match: m[0] }
+  }
+
+  // week after next → Monday of that week
+  if ((m = text.match(/\b(week after next|uebernaechste woche|uebernaechsten woche)\b/))) {
+    const dow = parseDayKey(todayKey).getDay()
+    return { date: addDays(todayKey, (((8 - dow) % 7) || 7) + 7), match: m[0] }
   }
 
   // next week / naechste woche → Monday of next week
@@ -155,6 +173,42 @@ export function parseDateRange(text, todayKey = dayKey()) {
     return { from: addDays(todayKey, -back), to: todayKey, match: m[0], past: true }
   }
 
+  // "vom 3. bis 5. Oktober", "3.-5.10.", "october 3 to 5"
+  if ((m = text.match(new RegExp(`\\b(?:vom |von |from |between )?(\\d{1,2})\\.?\\s*(?:bis|-|–|to|until|and|und)\\s*(\\d{1,2})\\.?\\s*(${MONTH_WORDS})\\b`)))) {
+    const month = monthIndex(m[3])
+    const from = nextOccurrence(month, Number(m[1]), todayKey)
+    const to = dayKey(new Date(parseDayKey(from).getFullYear(), month, Number(m[2])))
+    if (to >= from) return { from, to, match: m[0] }
+  }
+  if ((m = text.match(/\b(?:vom |von |from )?(\d{1,2})\.(\d{1,2})?\.?\s*(?:bis|-|–|to|until)\s*(\d{1,2})\.(\d{1,2})\.?(?=\s|$)/))) {
+    const endMonth = Number(m[4]) - 1
+    const startMonth = m[2] ? Number(m[2]) - 1 : endMonth
+    if (startMonth >= 0 && startMonth <= 11 && endMonth >= 0 && endMonth <= 11) {
+      const from = nextOccurrence(startMonth, Number(m[1]), todayKey)
+      let to = dayKey(new Date(parseDayKey(from).getFullYear(), endMonth, Number(m[3])))
+      if (to < from) to = dayKey(new Date(parseDayKey(from).getFullYear() + 1, endMonth, Number(m[3])))
+      return { from, to, match: m[0] }
+    }
+  }
+  if ((m = text.match(new RegExp(`\\b(${MONTH_WORDS})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:-|–|to|until|bis)\\s*(\\d{1,2})(?:st|nd|rd|th)?\\b`)))) {
+    const month = monthIndex(m[1])
+    const from = nextOccurrence(month, Number(m[2]), todayKey)
+    const to = dayKey(new Date(parseDayKey(from).getFullYear(), month, Number(m[3])))
+    if (to >= from) return { from, to, match: m[0] }
+  }
+  // "Montag bis Freitag", "mo-fr", "monday to wednesday" — from the next such day
+  if ((m = text.match(new RegExp(`\\b(?:von |from )?(${WEEKDAY_NAMES})\\s*(?:bis|-|–|to|until|through)\\s*(${WEEKDAY_NAMES})\\b`)))) {
+    const a = WEEKDAYS.findIndex(names => names.includes(m[1]))
+    const b = WEEKDAYS.findIndex(names => names.includes(m[2]))
+    if (a >= 0 && b >= 0) {
+      const from = addDays(todayKey, (a - dow + 7) % 7)
+      return { from, to: addDays(from, (b - a + 7) % 7), match: m[0] }
+    }
+  }
+  if ((m = text.match(/\b(?:in der |in )?(week after next|uebernaechste woche|uebernaechsten woche)\b/))) {
+    const from = addDays(todayKey, (((8 - dow) % 7) || 7) + 7)
+    return { from, to: addDays(from, 6), match: m[0] }
+  }
   if ((m = text.match(/\b(?:in )?(this week|diese woche|dieser woche|die woche)\b/))) {
     return { from: todayKey, to: addDays(todayKey, (7 - dow) % 7), match: m[0] }
   }

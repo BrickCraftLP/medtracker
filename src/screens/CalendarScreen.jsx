@@ -31,6 +31,7 @@ import {
 } from '../utils/calendar/eventModel.js'
 import { defaultCalendarFor } from '../utils/calendar/calendarScope.js'
 import { wsKey } from '../services/workspaceScope.js'
+import { useAssistantScreen } from '../assistant/screenContext.js'
 
 const EventEditorModal = lazy(() => import('../components/Modals/EventEditorModal.jsx'))
 const CalendarManagerModal = lazy(() => import('../components/Modals/CalendarManagerModal.jsx'))
@@ -133,6 +134,15 @@ export default function CalendarScreen() {
       : `${format(parseDayKey(first), 'd. LLL', { locale })} – ${format(parseDayKey(list[list.length - 1]), 'd. LLL yyyy', { locale })}`
     return { days: list, rangeFrom: first, rangeTo: list[list.length - 1], title: label }
   }, [anchor, view, locale, t])
+
+  // The assistant answers "was steht an?" / "move this" for what is shown here.
+  useAssistantScreen('calendar', {
+    screen: 'calendar',
+    view,
+    date: anchor,
+    range: { from: rangeFrom, to: rangeTo },
+    openEventId: sheet?.type === 'event' ? sheet.occurrence?.event?.id ?? null : null,
+  })
 
   // ── Data for the range ───────────────────────────────────────────────────
 

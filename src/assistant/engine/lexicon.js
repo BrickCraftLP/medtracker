@@ -192,6 +192,15 @@ function sharedPrefix(a, b) {
   return i
 }
 
+// One word of a name against one token of a sentence: equal, a 3-letter
+// prefix, or a long shared stem ("vorlesungen" / "vorlesung").
+export function tokenHits(variant, token) {
+  if (variant.length <= 3) return token === variant || (variant.length === 3 && token.startsWith(variant))
+  if (token === variant || token.includes(variant)) return true
+  const p = sharedPrefix(token, variant)
+  return p >= 5 && p >= 0.7 * Math.min(token.length, variant.length)
+}
+
 function hits(variant, hay, hayTokens) {
   if (variant.includes(' ')) return hay.includes(` ${variant} `) || hay.includes(` ${variant}`)
   if (variant.length <= 3) return hayTokens.some(t => t === variant || (variant.length === 3 && t.startsWith(variant)))

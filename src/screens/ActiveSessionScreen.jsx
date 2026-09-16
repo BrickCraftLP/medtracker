@@ -6,6 +6,7 @@ import { useData } from '../context/DataContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { upsertActiveSession, deleteActiveSession } from '../services/dbInterface.js'
+import { useAssistantScreen } from '../assistant/screenContext.js'
 
 export default function ActiveSessionScreen() {
   const navigate = useNavigate()
@@ -31,6 +32,7 @@ export default function ActiveSessionScreen() {
   const topicId = location.state?.topicId
   const pauseEnabled = location.state?.pauseBetweenExercises ?? false
   const topic = topics.find(t => t.id === topicId)
+  useAssistantScreen('session', { screen: 'session', topicId: topicId ?? null })
 
   const [showPauseDialog, setShowPauseDialog] = useState(false)
   const [manualPause, setManualPause] = useState(false)

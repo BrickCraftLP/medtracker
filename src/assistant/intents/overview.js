@@ -2,6 +2,7 @@
 // how long until exams.
 
 import { registerIntent } from '../engine/registry.js'
+import { slot } from '../engine/schema.js'
 import { fold } from '../engine/normalize.js'
 import { matchScore } from '../engine/lexicon.js'
 import { extract, cleanTitle } from '../engine/parse/index.js'
@@ -118,7 +119,7 @@ registerIntent({
 // ── Week overview ──────────────────────────────────────────────────────────
 
 // Booked minutes inside waking hours, overlapping blocks counted once.
-function bookedMinutes(occ, dayStart, dayEnd) {
+export function bookedMinutes(occ, dayStart, dayEnd) {
   const spans = occ.map(o => [Math.max(dayStart, o.startMin), Math.min(dayEnd, o.endMin)]).filter(([s, e]) => e > s).sort((a, b) => a[0] - b[0])
   let total = 0
   let cursor = -1
@@ -133,7 +134,7 @@ function bookedMinutes(occ, dayStart, dayEnd) {
 registerIntent({
   id: 'week_overview',
   describe: 'Overview of a week (or other span): per day how many entries, booked vs free hours, exams and todos due',
-  slots: { from: 'YYYY-MM-DD optional, default today', to: 'YYYY-MM-DD optional, default end of this week' },
+  slots: { from: slot('date', 'first day, default today', { primary: true }), to: slot('date', 'last day, default end of this week') },
   examples: ['How does my week look?', 'Wie sieht meine Woche aus?'],
   completions: {
     de: ['Wie sieht meine Woche aus?', 'Wie sieht nächste Woche aus?'],
@@ -221,7 +222,7 @@ const EXAM_STOP = [
 registerIntent({
   id: 'exam_countdown',
   describe: 'Upcoming exams: days left and how ready the linked topic is (accuracy vs target, trend)',
-  slots: { query: 'words from the exam title, optional' },
+  slots: { query: slot('text', 'words from the exam title', { primary: true }) },
   examples: ['How long until the anatomy exam?', 'Wie lange noch bis zur Anatomie-Prüfung?'],
   completions: {
     de: ['Wie lange noch bis zur Prüfung?', 'Welche Prüfungen habe ich?'],

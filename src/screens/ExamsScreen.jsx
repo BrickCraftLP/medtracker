@@ -17,6 +17,7 @@ import { progressByEvent } from '../utils/calculations/eventProgressCalcs.js'
 import { dayKey } from '../utils/calendar/eventModel.js'
 import { defaultCalendarFor } from '../utils/calendar/calendarScope.js'
 import { wsKey } from '../services/workspaceScope.js'
+import { useAssistantScreen } from '../assistant/screenContext.js'
 
 const ExamEditorModal = lazy(() => import('../components/Modals/ExamEditorModal.jsx'))
 const GradeChart = lazy(() => import('../components/Calendar/GradeChart.jsx'))
@@ -82,6 +83,8 @@ export default function ExamsScreen() {
       .sort((a, b) => (a.exam_date < b.exam_date ? -1 : 1))[0] ?? null,
     [calendarExams, today],
   )
+
+  useAssistantScreen('exams', { screen: 'exams', calendarId: activeCalendar?.id ?? null, nextExamId: nextExam?.id ?? null })
 
   if (dataLoading) {
     return (

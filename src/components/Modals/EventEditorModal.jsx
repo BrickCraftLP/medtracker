@@ -20,6 +20,7 @@ import {
 } from '../../utils/calendar/eventModel.js'
 import { buildRrule, parseRrule } from '../../utils/calendar/recurrence.js'
 import { defaultCalendarFor } from '../../utils/calendar/calendarScope.js'
+import { useAssistantScreen } from '../../assistant/screenContext.js'
 
 const REPEATS = [
   { key: 'none', freq: null, interval: 1 },
@@ -42,6 +43,7 @@ export default function EventEditorModal({ draft, occurrence, onClose }) {
 
   const existing = occurrence?.event ?? null
   const isEdit = !!existing?.id
+  useAssistantScreen('event-editor', { editingEventId: existing?.id ?? null })
   const base = existing ?? draft ?? {}
 
   const [form, setForm] = useState(() => ({

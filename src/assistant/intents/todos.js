@@ -5,12 +5,14 @@
 // anywhere in the sentence instead of relying on word order alone.
 
 import { registerIntent } from '../engine/registry.js'
-import { hasAny, fold, normalize } from '../engine/normalize.js'
+import { slot } from '../engine/schema.js'
+import { hasAny, normalize } from '../engine/normalize.js'
 import { extract, cleanTitle, labelFrom } from '../engine/parse/index.js'
 import { fmtMin } from '../engine/parse/times.js'
 import { buildTodo, sortTodos } from '../../utils/calculations/todoPriorityCalcs.js'
 import { matchScore } from '../engine/lexicon.js'
 import { startTodoFlow, todoQuestion } from '../flows/todoFlow.js'
+import { resolveRef, contextRef, isDeictic, isArticleOnly, DEICTIC } from '../engine/references.js'
 
 const ADD = [/\b(add|create|new|neu|neue[nrs]?|hinzu\w*|fueg\w*|erstell\w*|notier\w*|aufschreiben|schreib\w* (?:mir )?auf|merk\w*|pack\w*|trag\w*|eintragen|leg\w*|anlegen|remind me|erinner\w* mich)\b/]
 const DELETE = /\b(delete|remove|loesch\w*|entfern\w*|streich\w*)\b/
@@ -51,15 +53,16 @@ export function todoSearchText(api, t) {
 }
 
 // Best todo for a name → { t, s } (s: 2 = exact text), open ones win ties.
+// `@screen` / `@last` / "das" resolve to the todo on screen or in the last answer.
 export function findTodoScored(api, query) {
+  if (String(query ?? '').startsWith('@')) {
+    const ref = resolveRef(api, 'todo', query)
+    return ref ? { t: ref.row, s: 2 } : null
+  }
   const q = cleanTitle(query ?? '', ['todo', 'the', 'my', 'die', 'das', 'den', 'meine'])
   if (!q) return null
-  let best = null
-  for (const t of api.todos) {
-    const s = fold(t.text) === fold(q) ? 2 : matchScore(q, todoSearchText(api, t), { lang: api.lang }).score
-    if (s > 0.5 && (!best || s > best.s || (s === best.s && best.t.completed && !t.completed))) best = { t, s }
-  }
-  return best
+  const hit = api.index().best(q, { types: ['todo'], min: 0.501, focus: api.focus() })
+  return hit ? { t: hit.row, s: hit.score } : null
 }
 
 export const findTodo = (api, query) => findTodoScored(api, query)?.t ?? null
@@ -68,15 +71,9 @@ export const findTodo = (api, query) => findTodoScored(api, query)?.t ?? null
 // Skript lesen auf Montag" → "Skript lesen"). The most complete, then the
 // longest match wins.
 export function findTodoIn(api, sentence, { openOnly = false } = {}) {
-  let best = null
-  for (const t of api.todos) {
-    if (openOnly && t.completed) continue
-    if (!t.text?.trim()) continue
-    const s = matchScore(t.text, sentence, { lang: api.lang }).score
-    const len = t.text.trim().split(/\s+/).length
-    if (s >= 0.75 && (!best || s > best.s || (s === best.s && len > best.len))) best = { t, s, len }
-  }
-  return best?.t ?? null
+  return api.index()
+    .mentions(sentence ?? '', { types: ['todo'], min: 0.75, focus: api.focus() })
+    .find(m => !openOnly || !m.row.completed)?.row ?? null
 }
 
 const RENAME_VERB = /^(?:bitte\s)?(aender\w*|change|update|rename|benenn\w*|umbenenn\w*)\s+(?:(?:den\s|the\s)?(?:namen|name|titel|title|text|bezeichnung)\s+(?:von\s|vom\s|des\s|der\s|of\s)?)?(?:das\s|den\s|die\s|the\s|my\s|mein\w*\s)?/
@@ -119,7 +116,11 @@ const todoBlock = (api, ids, extra = {}) => ({ type: 'todos', data: { ids, ...ex
 registerIntent({
   id: 'add_todo',
   describe: 'Create a todo/task, optionally with due date/time, priority and topic. Opens the todo settings above the input',
-  slots: { text: 'task text', due_date: 'YYYY-MM-DD optional', due_time: 'HH:MM optional', topic: 'topic name optional', priority: '1-3 optional' },
+  slots: {
+    text: slot('text', 'what the todo says', { primary: true }),
+    due_date: slot('date', 'due day'), due_time: slot('time', 'due time'),
+    topic: slot('ref:topic', 'topic it belongs to'), priority: slot('int', '1 low, 2 medium, 3 high'),
+  },
   examples: ['Add todo read cardio chapter tomorrow', 'Neues Todo Skript lesen bis Freitag'],
   completions: {
     de: ['Neues Todo {title}', 'Erinnere mich an {title}', 'Füge {title} zu meinen Todos hinzu', 'Ich muss {day} {title}'],
@@ -168,7 +169,7 @@ registerIntent({
 registerIntent({
   id: 'list_todos',
   describe: 'Show open todos, optionally only those due by a date or overdue',
-  slots: { date: 'YYYY-MM-DD optional', overdue: 'true optional' },
+  slots: { date: slot('date', 'only todos due by this day', { primary: true }), overdue: slot('bool', 'only overdue todos') },
   examples: ['Show my todos', 'Was muss ich heute noch erledigen?'],
   completions: {
     de: ['Zeig meine Todos', 'Welche Todos habe ich {day}?', 'Was muss ich {day} erledigen?'],
@@ -212,7 +213,7 @@ registerIntent({
   id: 'complete_todo',
   mutates: true,
   describe: 'Mark a todo as done',
-  slots: { text: 'part of the todo text' },
+  slots: { text: slot('ref:todo', 'the todo that is done', { required: true, primary: true }) },
   examples: ['Mark read cardio chapter as done', 'Hake Skript lesen ab'],
   completions: {
     de: ['{todo} erledigt', 'Hake {todo} ab'],
@@ -221,9 +222,20 @@ registerIntent({
   match(text, { raw, api }) {
     if (QUESTION_START.test(text) || /\?\s*$/.test(raw ?? '') || DELETE.test(text)) return null
     if (!DONE_WORDS.test(text) && !/^(?:hake?|hak\w*)\b/.test(text)) return null
+    // "Hake das ab", "das ist erledigt", "mark it as done": the todo in context.
+    if (api && (/^(?:bitte )?(?:hake?|hak\w*|mark|check|tick|markier\w*)\s+(?:das|es|it|this|that|dies\w*)(?:\s+(?:ab|off|as done|als erledigt))?$/.test(text)
+      || /^(?:das|es|it|this|that|dies\w*) (?:ist |is )?(?:erledigt|done|fertig|abgehakt)$/.test(text))) {
+      const ref = contextRef(api, ['todo', 'event'])
+      return ref?.type === 'todo' ? { score: 0.9, slots: { text: ref.token } } : null
+    }
     const m = text.match(/^(?:mark|check off|tick off|complete|hake?|hak\w*|markier\w*|setz\w*|ich habe|ich hab|i have|i)\s+(?:das |the |mein\w* |my )?(?:todo )?(.+?)(?:\s+(?:as|als|auf|is|ist))?(?:\s+(?:done|completed?|erledigt|ab|abgehakt|fertig))?$/)
       || text.match(/^(?:das |the |mein\w* )?(?:todo )?(.+?)\s+(?:is |ist |bin |habe |hab )?(?:done|erledigt|abhaken|abgehakt|fertig)$/)
     const guess = m?.[1]?.replace(/\btodo\b/, '').trim()
+    // "Hake das ab", "mark it as done": the todo on screen or in the last answer.
+    if (api && (guess ? isDeictic(guess) || isArticleOnly(guess) : isDeictic(text))) {
+      const ref = contextRef(api, ['todo', 'event'])
+      if (ref?.type === 'todo') return { score: 0.88, slots: { text: ref.token } }
+    }
     const found = api ? (guess && findTodo(api, guess)) || findTodoIn(api, text, { openOnly: true }) : null
     if (!found && (!guess || guess.length < 3 || /^(ich|es|das|i|it)$/.test(guess))) return null
     return { score: found ? 0.88 : 0.75, slots: { text: found?.text ?? guess } }
@@ -239,8 +251,12 @@ registerIntent({
 registerIntent({
   id: 'edit_todo',
   mutates: true,
-  describe: "Change an existing todo: rename it, or set its due date, due time or priority",
-  slots: { text: 'current todo text', new_text: 'new text optional', due_date: 'YYYY-MM-DD optional', due_time: 'HH:MM optional', priority: '1-3, or null to clear, optional' },
+  describe: "Change an existing todo: rename it, or set its due date, due time, priority or topic",
+  slots: {
+    text: slot('ref:todo', 'the todo to change', { required: true, primary: true }),
+    new_text: slot('text', 'new wording'), due_date: slot('date', 'new due day'), due_time: slot('time', 'new due time'),
+    priority: slot('int', '1 low, 2 medium, 3 high, 0 to clear'), topic: slot('ref:topic', 'topic to link it to'),
+  },
   examples: ['Move todo read script to Friday', 'Ändere das Datum von Skript lesen auf Montag'],
   completions: {
     de: ['Verschiebe {todo} auf {day}', '{todo} bis {day}', 'Mach {todo} wichtig', 'Benenne {todo} in {title} um'],
@@ -295,7 +311,26 @@ registerIntent({
     m = text.match(/^(?:move|postpone|verschieb\w*)\s+(?:todo\s+)?(.+?)\s+(?:to|auf|nach)\s+(.+)$/)
     if (m) {
       const d = extract(m[2], today)
+      if (d.date && api && (isDeictic(m[1]) || isArticleOnly(m[1]))) {
+        const ref = contextRef(api, ['todo', 'event', 'exam'])
+        if (ref?.type === 'todo') return { score: 0.88, slots: { text: ref.token, due_date: d.date, ...(d.startMin != null ? { due_time: fmtMin(d.startMin) } : {}) } }
+        return null
+      }
       if (d.date) return { score: /\btodo\b/.test(text) ? 0.85 : 0.55, slots: { text: m[1], due_date: d.date } }
+    }
+
+    // "Mach das wichtig", "set it to Friday": a change to the todo in context.
+    if (change && api && (DEICTIC.test(text) || /^(?:bitte )?\w+\s+(?:das|den|die)\b/.test(text))) {
+      const ref = contextRef(api, ['todo', 'event', 'exam'])
+      if (ref?.type === 'todo') {
+        const x = extract(text, today)
+        const priority = priorityOf(text)
+        const slots = { text: ref.token }
+        if (x.date) slots.due_date = x.date
+        if (x.startMin != null) slots.due_time = fmtMin(x.startMin)
+        if (priority !== undefined) slots.priority = priority
+        if (Object.keys(slots).length > 1 || 'priority' in slots) return { score: 0.88, slots }
+      }
     }
     return null
   },
@@ -327,8 +362,15 @@ registerIntent({
       patch.due_time = slots.due_time
       changes.push(api.L(`at ${slots.due_time}`, `um ${slots.due_time}`))
     }
+    if (slots.topic) {
+      const topic = api.findTopic(slots.topic)
+      if (topic) {
+        patch.topic_id = topic.id
+        changes.push(api.L(`topic ${topic.name}`, `Topic ${topic.name}`))
+      }
+    }
     if ('priority' in slots && slots.priority !== undefined) {
-      const p = slots.priority == null || slots.priority === 'null' ? null : Number(slots.priority)
+      const p = !slots.priority || slots.priority === 'null' ? null : Number(slots.priority)
       patch.priority = p
       changes.push(p ? api.L(`priority ${PRIORITY_LABEL[p][0]}`, `Priorität ${PRIORITY_LABEL[p][1]}`) : api.L('no priority', 'keine Priorität'))
     }
@@ -357,7 +399,7 @@ registerIntent({
 registerIntent({
   id: 'delete_todo',
   describe: 'Delete a todo (asks for confirmation)',
-  slots: { text: 'part of the todo text' },
+  slots: { text: slot('ref:todo', 'the todo to delete', { required: true, primary: true }) },
   examples: ['Delete todo buy scrubs', 'Lösche das Todo Kittel kaufen'],
   completions: {
     de: ['Lösche Todo {todo}', 'Entferne {todo} aus meinen Todos'],
@@ -368,6 +410,12 @@ registerIntent({
     const m = text.match(/^(?:bitte )?(?:delete|remove|loesch\w*|entfern\w*|streich\w*)\s+(?:the\s+|das\s+|den\s+|die\s+)?todo\s+(.+)$/)
       || text.match(/^(?:das\s+|the\s+)?todo\s+(.+?)\s+(?:loeschen|entfernen|streichen|delete|remove)$/)
     if (m) return { score: 0.9, slots: { text: m[1] } }
+    // "Lösch das": the todo in context — if that is a todo at all.
+    const bare = text.match(/^(?:bitte )?(?:delete|remove|loesch\w*|entfern\w*|streich\w*)\s+(.+)$/)?.[1]
+    if (api && bare && (isDeictic(bare) || isArticleOnly(bare))) {
+      const ref = contextRef(api, ['todo', 'event', 'exam'])
+      return ref?.type === 'todo' ? { score: 0.88, slots: { text: ref.token } } : null
+    }
     const found = api ? findTodoIn(api, text) : null
     if (!found) return null
     return { score: /\b(todo|liste|list)\b/.test(text) ? 0.9 : 0.8, slots: { text: found.text } }

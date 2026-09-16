@@ -16,6 +16,7 @@ import { buildEvent, timeOf } from '../../utils/calendar/eventModel.js'
 import { buildTodo } from '../../utils/calculations/todoPriorityCalcs.js'
 import { overlapping, findAlternatives, occItem } from '../intents/calendar.js'
 import { DONE, SKIP, YES, NO, newId, plain, looksLikeNewRequest } from './common.js'
+import { habitFor, getProfile } from '../engine/profile.js'
 
 export const REMINDER_CHOICES = [0, 5, 10, 30, 60, 24 * 60]
 
@@ -49,26 +50,36 @@ export function startEventFlow(init, api) {
   const named = init.calendar
     ? calendars.map(c => ({ c, s: matchScore(init.calendar, c.name ?? '', { lang: api.lang }).score })).sort((a, b) => b.s - a.s)[0]
     : null
+  // What entries with this name usually look like ("Brunch" → 10:00, 60 min, Café Central).
+  let habit = null
+  try { habit = init.title ? habitFor(api, init.title) : null } catch (e) { console.warn('[assistant] habit', e) }
+  const profile = (() => { try { return getProfile(api) } catch { return null } })()
+  const reminders = Array.isArray(init.reminders) ? init.reminders.map(Number).filter(n => Number.isFinite(n) && n >= 0) : []
   const draft = {
     title: init.title ?? '',
     date: init.date ?? null,
     startMin: init.startMin ?? null,
     endMin: init.endMin ?? null,
     allDay: !!init.allDay,
-    location: init.location ?? '',
-    calendar_id: (named && named.s >= 0.5 ? named.c.id : null) ?? api.defaultCalendarId(),
-    reminders: Array.isArray(init.reminders) ? init.reminders.map(Number).filter(n => Number.isFinite(n) && n >= 0) : [],
+    location: init.location || habit?.location || '',
+    calendar_id: (named && named.s >= 0.5 ? named.c.id : null)
+      ?? (habit?.calendarId && calendars.some(c => c.id === habit.calendarId) ? habit.calendarId : null)
+      ?? api.defaultCalendarId(),
+    reminders: reminders.length || init.remindersGiven ? reminders : habit?.reminders ?? profile?.calendar.reminders ?? [],
     kind: init.kind ?? 'event',
     topic_id: init.topic_id ?? null,
     notes: init.notes ?? '',
+    rrule: init.repeat ?? null,
   }
   if (draft.startMin != null && (draft.endMin == null || draft.endMin <= draft.startMin)) {
-    draft.endMin = Math.min(1439, draft.startMin + (Number(init.minutes) || durationOf({ kind: draft.kind })))
+    const usual = habit?.minutes ?? profile?.calendar.kindMinutes?.[draft.kind] ?? null
+    draft.endMin = Math.min(1439, draft.startMin + (Number(init.minutes) || usual || durationOf({ kind: draft.kind })))
   }
+  const suggested = { location: !init.location && !!habit?.location, reminders: !reminders.length && !init.remindersGiven && draft.reminders.length > 0 }
   const quick = !!(draft.title && draft.date && (draft.startMin != null || draft.allDay))
   const flow = {
     id: newId(), rev: 0, type: 'event', mode: quick ? 'quick' : 'guided',
-    step: null, forced: null, passed: {}, hint: null, alts: [], draft, todos: [],
+    step: null, forced: null, passed: {}, hint: null, alts: [], draft, todos: [], suggested,
     todoSettings: { due_date: draft.date, due_time: null, priority: null, topic_id: draft.topic_id },
   }
   if (calendars.length <= 1) flow.passed.calendar = true
@@ -196,7 +207,8 @@ export function answerEvent(flow, text, api) {
 
     case 'location': {
       const next = { ...flow, forced: flow.forced === 'location' ? null : flow.forced }
-      if (SKIP.test(p)) return advance(pass(next, 'location'), api)
+      // "nein" to a suggested usual place removes it; Enter / "weiter" keeps it.
+      if (SKIP.test(p)) return advance(pass(flow.suggested?.location ? withDraft(next, { location: '' }) : next, 'location'), api)
       if (looksLikeNewRequest(t, api)) return { passthrough: true }
       return advance(pass(withDraft(next, { location: t }), 'location'), api)
     }
@@ -300,7 +312,9 @@ export function eventQuestion(flow, api) {
     date: L(`Which day is “${d.title}”?`, `An welchem Tag ist „${d.title}“?`),
     time: L('What time? (e.g. "10-12", or all day)', 'Um wie viel Uhr? (z. B. „10 bis 12“ oder ganztägig)'),
     conflict: L('⚠️ That overlaps. Pick another time above, type one — or keep it.', '⚠️ Das überschneidet sich. Andere Zeit oben wählen, eintippen – oder trotzdem behalten.'),
-    location: L('Where? Type a place — or skip.', 'Wo? Ort eintippen – oder überspringen.'),
+    location: flow.suggested?.location && d.location
+      ? L(`Where? Usually “${d.location}” — Enter keeps it, type another place, or “no”.`, `Wo? Meist „${d.location}“ – Enter behält das, anderen Ort eintippen oder „nein“.`)
+      : L('Where? Type a place — or skip.', 'Wo? Ort eintippen – oder überspringen.'),
     calendar: L('Which calendar?', 'In welchen Kalender?'),
     reminder: L('Reminder? Pick above, then “Next”.', 'Erinnerung? Oben auswählen, dann „Weiter“.'),
     askTodos: L('Add todos to it?', 'Todos dazu anlegen?'),
@@ -332,6 +346,7 @@ export async function saveEvent(flow, api) {
     location: d.location || null,
     notes: d.notes || null,
     reminders: d.reminders,
+    rrule: d.rrule || null,
     topic_id: d.kind === 'study' || d.kind === 'exam' ? d.topic_id : null,
     planned_minutes: d.allDay ? null : end - start,
   }))

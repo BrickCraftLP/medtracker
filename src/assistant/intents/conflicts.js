@@ -3,6 +3,7 @@
 // nearest free alternatives, a "move the other one" option and "add anyway".
 
 import { registerIntent, getIntent } from '../engine/registry.js'
+import { slot } from '../engine/schema.js'
 import { normalize } from '../engine/normalize.js'
 import { extract, cleanTitle } from '../engine/parse/index.js'
 import { fmtMin, fmtDuration } from '../engine/parse/times.js'
@@ -26,7 +27,10 @@ const STOP = [
 registerIntent({
   id: 'check_overlap',
   describe: 'Check whether a specific date + time is free or overlaps existing entries; suggests nearest free alternatives',
-  slots: { date: 'YYYY-MM-DD', start: 'HH:MM', end: 'HH:MM optional', minutes: 'duration minutes optional', title: 'what the user wants to do, optional' },
+  slots: {
+    date: slot('date', 'day to check', { required: true }), start: slot('time', 'start time', { required: true }), end: slot('time', 'end time'),
+    minutes: slot('minutes', 'length'), title: slot('text', 'what the user wants to do', { primary: true }),
+  },
   examples: ['Can I go to the dentist tomorrow 3-5pm?', 'Kann ich morgen von 15 bis 17 Uhr zum Zahnarzt?'],
   completions: {
     de: ['Kann ich {day} um {clock} {title}?', 'Passt {day} {time}?', 'Überschneidet sich {day} {time} mit etwas?'],
