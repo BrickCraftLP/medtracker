@@ -190,6 +190,12 @@ export async function removeRows(store, ids) {
 
 // ── Reads ─────────────────────────────────────────────────────────────────
 
+export async function getOne(store, id) {
+  if (!id) return null
+  const db = await openDB()
+  return reqToPromise(tx(db, store, 'readonly').get(id))
+}
+
 export async function getAllByUser(store, userId) {
   const db = await openDB()
   const idx = tx(db, store, 'readonly').index('user_id')
@@ -233,6 +239,16 @@ export async function setMeta(key, value) {
   return new Promise((resolve, reject) => {
     const t = db.transaction(STORES.meta, 'readwrite')
     t.objectStore(STORES.meta).put(value, key)
+    t.oncomplete = () => resolve()
+    t.onerror = e => reject(e.target.error)
+  })
+}
+
+export async function deleteMeta(key) {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(STORES.meta, 'readwrite')
+    t.objectStore(STORES.meta).delete(key)
     t.oncomplete = () => resolve()
     t.onerror = e => reject(e.target.error)
   })

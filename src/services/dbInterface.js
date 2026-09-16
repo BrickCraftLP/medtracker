@@ -19,6 +19,7 @@ import {
   STORES,
   bulkPut,
   removeRows,
+  getOne,
   getAllByUser,
   getAllByWorkspace,
   clearWorkspaceLocal,
@@ -615,6 +616,17 @@ export async function saveTodo(userId, todo) {
     workspace_id: workspaceId,
     // Stamped locally so offline-created todos sort correctly before the first sync.
     created_at: todo.created_at ?? new Date().toISOString(),
+  }
+
+  // The Google Tasks link is written only by the sync. Every other writer — a
+  // UI edit built from a row read before the link existed, a queued offline
+  // change replayed later — simply omits the field, and mirroring that row
+  // would drop the link locally: the next sync then sees an unlinked todo,
+  // recreates it in Google and re-imports the task it no longer recognises.
+  // An explicit null is the sync deliberately unlinking, and is left alone.
+  if (row.google_task_id === undefined) {
+    const stored = await getOne(STORES.todos, row.id).catch(() => null)
+    if (stored?.google_task_id) row.google_task_id = stored.google_task_id
   }
 
   const saveOffline = async () => {
@@ -1232,7 +1244,13 @@ export async function flushLocalChanges(userId) {
         if (change.type === 'delete') await deleteWidgetConfig(userId, change.payload.position)
       }
       removeLocalChange(change.timestamp)
-    } catch {}
+    } catch (e) {
+      // A change the server keeps rejecting would otherwise stay queued and
+      // replay on every sync forever. Only a network failure is worth keeping.
+      if (isNetworkError(e)) continue
+      console.error(`flushLocalChanges: ${change.table} ${change.type} dropped`, e)
+      removeLocalChange(change.timestamp)
+    }
   }
 }
 

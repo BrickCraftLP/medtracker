@@ -40,6 +40,14 @@ const POLL_MS = 2 * 60_000
 
 export const NEW_TASK_LIST = '__new__'
 
+// Module scope, not useRef: GoogleSyncProvider is mounted inside AppShell,
+// which unmounts it whenever dataLoading flips. A remount would hand the new
+// instance fresh guards while the previous run's promise is still in flight —
+// two runs over the same list, each inserting the copy the other has not
+// written yet.
+const runningRef = { current: false }
+const againRef = { current: false }
+
 // Linked workspaces grouped by the list they share. A list shared by several
 // workspaces is "merged"; its primary workspace receives tasks created in
 // Google.
@@ -98,15 +106,6 @@ export function GoogleSyncProvider({ children }) {
   const [error, setError] = useState(null)
   const [lastResult, setLastResult] = useState(null)
   const lastRunRef = useRef(0)
-  // A synchronous re-entrancy guard, separate from the `syncing` state: two
-  // triggers firing back to back (launch + an immediate foreground event) can
-  // both read `syncing` as false before either commit lands, and would then
-  // pull the same not-yet-locally-known Google event twice — each inserting
-  // it as "new" and colliding on the row the other just created.
-  const runningRef = useRef(false)
-  // Something asked for a run while one was underway (an edit, a link). One
-  // follow-up run after the current one picks it up.
-  const againRef = useRef(false)
 
   // Read inside the async loop so a sync that started before a local edit
   // still pushes the newest rows.

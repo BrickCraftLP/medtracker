@@ -103,11 +103,10 @@ async function localRows(group, ctx) {
   const ids = new Set(group.workspaces.map(w => w.id))
   const rows = new Map()
   for (const ws of group.workspaces) {
-    try {
-      for (const td of await getAllByWorkspace(STORES.todos, ws.user_id, ws.id)) rows.set(td.id, td)
-    } catch (e) {
-      console.warn('googleTasksSync: offline mirror unavailable', e)
-    }
+    // A failed read aborts the run instead of syncing against a partial set:
+    // with the rows missing, every task already in Google looks new and is
+    // copied in again, and every todo looks unsynced and is pushed again.
+    for (const td of await getAllByWorkspace(STORES.todos, ws.user_id, ws.id)) rows.set(td.id, td)
   }
   // React state can be a write ahead of the mirror (a save still in flight).
   for (const td of ctx.todos) if (ids.has(td.workspace_id)) rows.set(td.id, td)
@@ -150,6 +149,42 @@ export async function syncTaskList(group, ctx) {
     result.lastError = e?.message ?? String(e)
   }
 
+  // Re-pairing after a lost link. A task carries nothing that points back at
+  // the todo, so one whose google_task_id went missing locally cannot be
+  // traced — without this it is recreated on both sides, every run, forever.
+  // Title plus due date is what a user would call the same task; each todo can
+  // be claimed only once, so two identically named todos stay two.
+  const contentKey = (title, due) => JSON.stringify([(title ?? '').trim().toLowerCase(), due || null])
+  const keyOfTask = item => contentKey(item.title, item.due ? item.due.slice(0, 10) : null)
+  const unclaimed = new Map()
+  for (const td of [...rows.values()].sort((a, b) => ((a.created_at ?? '') < (b.created_at ?? '') ? -1 : 1))) {
+    // Rows that never go to Google (nested too deep) would otherwise sit here
+    // for good and force a full listing on every poll.
+    if (td.google_task_id || !isEligible(td, rows)) continue
+    const key = contentKey(td.text, td.due_date ?? eventOf(td)?.start_date ?? null)
+    if (!unclaimed.has(key)) unclaimed.set(key, [])
+    unclaimed.get(key).push(td)
+  }
+  const claimLocal = item => unclaimed.get(keyOfTask(item))?.shift() ?? null
+
+  // A 404 on patch is either a task that really is gone, or a transient error.
+  // Dropping the id on the latter recreates the task next run beside the one
+  // still sitting in Google, so it is only believed against a full listing.
+  const allTaskIds = new Set()
+  let listedAll = false
+  const confirmAbsent = async taskId => {
+    if (!listedAll) {
+      let pageToken = null
+      do {
+        const page = await listTasks(listId, { pageToken })
+        for (const item of page.items) allTaskIds.add(item.id)
+        pageToken = page.nextPageToken
+      } while (pageToken)
+      listedAll = true
+    }
+    return !allTaskIds.has(taskId)
+  }
+
   // ── Pull, one item ──
   async function applyRemote(item) {
     const local = byTaskId.get(item.id)
@@ -170,6 +205,12 @@ export async function syncTaskList(group, ctx) {
     const parentId = item.parent ? (parent?.id ?? local?.parent_id ?? null) : null
 
     if (!local) {
+      // A todo that already stands for this task is adopted, not duplicated.
+      const adopted = claimLocal(item)
+      if (adopted) {
+        remember(await ctx.upsertTodo({ ...adopted, google_task_id: item.id }), item.parent)
+        return
+      }
       remember(await ctx.upsertTodo({
         ...mapped,
         due_time: null,
@@ -256,6 +297,7 @@ export async function syncTaskList(group, ctx) {
       // workspace was merged into this one). Drop the stale id so the next run
       // creates it here.
       if (e instanceof GoogleApiError && e.status === 404) {
+        if (!(await confirmAbsent(row.google_task_id))) throw e
         forget(row)
         rows.set(row.id, await ctx.upsertTodo({ ...row, google_task_id: null }))
         return
@@ -276,14 +318,21 @@ export async function syncTaskList(group, ctx) {
       await setMeta(deletesKey(ws.id), stillPending)
     }
 
-    // 2. Pull
+    // 2. Pull. A local row without a link means something needs re-pairing,
+    // and the delta cannot contain a task created in an earlier run — so the
+    // adoption pass above needs the whole list, not only what changed since.
+    const updatedMin = unclaimed.size ? undefined : state.updatedMin ?? undefined
     const items = []
     let pageToken = null
     do {
-      const page = await listTasks(listId, { updatedMin: state.updatedMin ?? undefined, pageToken })
+      const page = await listTasks(listId, { updatedMin, pageToken })
       items.push(...page.items)
       pageToken = page.nextPageToken
     } while (pageToken)
+    if (!updatedMin) {
+      for (const item of items) allTaskIds.add(item.id)
+      listedAll = true
+    }
 
     // Parents before their subtasks, so a subtask arriving with a new parent
     // in the same pull can be attached to it.

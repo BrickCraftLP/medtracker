@@ -12,6 +12,7 @@ import { useNotificationSettings } from '../context/NotificationSettingsContext.
 import { useCalendarSettings } from '../context/CalendarSettingsContext.jsx'
 import NavbarEditor from '../components/Navigation/NavbarEditor.jsx'
 import { useData } from '../context/DataContext.jsx'
+import { useGoogleSync } from '../context/GoogleSyncContext.jsx'
 import { usePin } from '../context/PinContext.jsx'
 import { useUpdate } from '../context/UpdateContext.jsx'
 import { useChangelog } from '../hooks/useChangelog.js'
@@ -21,6 +22,10 @@ import { LANGUAGES, getLocale } from '../i18n/index.js'
 import Switch from '../components/Common/Switch.jsx'
 import BouncyAccordion from '../components/Common/BouncyAccordion.jsx'
 import { getPushStatus, enablePush, disablePush } from '../services/pushService.js'
+import {
+  runBenchmark, downloadBenchmark, saveBenchmark, loadBenchmark, clearBenchmark,
+  loadHistory, appendHistory,
+} from '../utils/benchmark.js'
 
 const EXPORT_VERSION = '1.8.2'
 const BUILD_VERSION = '26I13.5F'
@@ -115,6 +120,155 @@ function InlineToggleRow({ label, description, checked, onChange }) {
   )
 }
 
+const SUBTEST_LABEL = {
+  hashSerialize: 'settings.benchmark.hashSerialize',
+  arrayReconcile: 'settings.benchmark.arrayReconcile',
+  objectChurn: 'settings.benchmark.objectChurn',
+  stringSearch: 'settings.benchmark.stringSearch',
+  domLayout: 'settings.benchmark.domLayout',
+  indexedDb: 'settings.benchmark.indexedDb',
+  frameRate: 'settings.benchmark.frameRate',
+}
+
+function BenchmarkTrend({ history, t }) {
+  if (history.length < 2) return null
+  const max = Math.max(...history.map(entry => entry.score))
+  const delta = history.at(-1).score - history.at(-2).score
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 7, borderTop: '0.5px solid var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+          {t('settings.benchmark.trend')}
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: delta > 0 ? '#22c55e' : delta < 0 ? '#ef4444' : 'var(--text-tertiary)' }}>
+          {delta > 0 ? '+' : ''}{delta} {t('settings.benchmark.vsLast')}
+        </span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 28 }}>
+        {history.map((entry, index) => (
+          <div
+            key={entry.at + index}
+            title={`${entry.score} · ${new Date(entry.at).toLocaleString()}`}
+            style={{
+              flex: 1, minWidth: 4, borderRadius: 2,
+              height: `${Math.max(8, (entry.score / max) * 100)}%`,
+              background: index === history.length - 1 ? 'var(--accent)' : 'var(--border)',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function deviceSummary(device) {
+  if (!device) return ''
+  const parts = []
+  if (device.model) parts.push(device.model)
+  if (device.os?.name) parts.push([device.os.name, device.os.version].filter(Boolean).join(' '))
+  if (device.browser?.name) parts.push([device.browser.name, device.browser.version].filter(Boolean).join(' '))
+  return parts.join(' · ')
+}
+
+function BenchmarkResults({ result, history, onDownload, onClear, t }) {
+  const compatibleHistory = history.filter(entry => (entry.suiteVersion ?? 1) === (result.suiteVersion ?? 1))
+  const environmentRows = [
+    result.environment?.storage && [t('settings.benchmark.storage'), `${result.environment.storage.usageMB ?? '?'} / ${result.environment.storage.quotaMB ?? '?'} MB`],
+    result.environment?.network && [t('settings.benchmark.network'), [
+      result.environment.network.effectiveType,
+      result.environment.network.downlinkMbps != null ? `${result.environment.network.downlinkMbps} Mbps` : null,
+      result.environment.network.rttMs != null ? `${result.environment.network.rttMs} ms RTT` : null,
+    ].filter(Boolean).join(', ')],
+    result.environment?.battery && [t('settings.benchmark.battery'), `${result.environment.battery.level}%${result.environment.battery.charging ? ' ⚡' : ''}`],
+    result.environment?.viewport && [t('settings.benchmark.viewport'), `${result.environment.viewport.width}×${result.environment.viewport.height} @${result.environment.viewport.dpr}x`],
+    result.environment?.timezone && [t('settings.benchmark.timezone'), result.environment.timezone],
+  ].filter(Boolean)
+  const liveRows = [
+    ...Object.entries(result.live?.timings ?? {}).map(([key, value]) => [
+      key,
+      value.error ? `${t('settings.benchmark.failed')}: ${value.error}` : `${value.ms} ms${value.rows != null ? ` (${value.rows})` : ''}`,
+      !!value.error,
+    ]),
+    ...Object.entries(result.live?.counts ?? {}).map(([key, value]) => [key, String(value), false]),
+  ]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4, padding: '12px 14px', borderRadius: 12, background: 'var(--bg-tertiary)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
+        <div>
+          <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            {t('settings.benchmark.score')} · v{result.suiteVersion ?? 1}
+          </span>
+          <span style={{ fontSize: 30, fontWeight: 800, color: 'var(--accent)', letterSpacing: -0.5, lineHeight: 1.1 }}>
+            {result.score ?? '—'}
+          </span>
+          {result.durationMs != null && (
+            <span style={{ display: 'block', marginTop: 2, fontSize: 11, color: 'var(--text-tertiary)' }}>
+              {(result.durationMs / 1000).toFixed(1)} s · ±{result.variabilityPct ?? '?'}%
+            </span>
+          )}
+        </div>
+        <div style={{ textAlign: 'right', minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--text-tertiary)' }}>
+            {new Date(result.at).toLocaleString()}{result.buildVersion ? ` · ${result.buildVersion}` : ''}
+          </span>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--text-tertiary)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {deviceSummary(result.device)}
+          </span>
+        </div>
+      </div>
+
+      {result.subtests && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 7, borderTop: '0.5px solid var(--border)' }}>
+          {Object.entries(result.subtests).map(([key, value]) => (
+            <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
+              <span style={{ color: 'var(--text-secondary)' }}>{t(SUBTEST_LABEL[key] ?? key)}</span>
+              <span style={{ color: value.error ? '#ef4444' : 'var(--text-primary)', fontWeight: 600, textAlign: 'right' }}>
+                {value.error
+                  ? t('settings.benchmark.failed')
+                  : key === 'frameRate'
+                    ? `${value.fps} fps · ${value.score}`
+                    : `${value.score}${value.variabilityPct != null ? ` · ±${value.variabilityPct}%` : ''}`}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <BenchmarkTrend history={compatibleHistory} t={t} />
+
+      {environmentRows.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingTop: 7, borderTop: '0.5px solid var(--border)' }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase' }}>{t('settings.benchmark.environment')}</span>
+          {environmentRows.map(([label, value]) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
+              <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600, textAlign: 'right' }}>{value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {liveRows.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingTop: 7, borderTop: '0.5px solid var(--border)' }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase' }}>{t('settings.benchmark.live')}</span>
+          {liveRows.map(([label, value, bad]) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
+              <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+              <span style={{ color: bad ? '#ef4444' : 'var(--text-primary)', fontWeight: 600, textAlign: 'right' }}>{value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 16, paddingTop: 2 }}>
+        <span onClick={onDownload} style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', cursor: 'pointer' }}>{t('settings.benchmark.download')}</span>
+        <span onClick={onClear} style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-tertiary)', cursor: 'pointer' }}>{t('settings.benchmark.clear')}</span>
+      </div>
+    </div>
+  )
+}
+
 function SegmentedControl({ options, value, onChange }) {
   return (
     <div style={{ display: 'flex', gap: 6, padding: 3, background: 'var(--bg-tertiary)', borderRadius: 12 }}>
@@ -153,8 +307,10 @@ export default function SettingsScreen() {
   const { hasSeenTour } = useTour()
   const { smoothLines, showDots, setSetting } = useGraphSettings()
   const { position, order, hidden } = useNavLayout()
-  const { isOnline, lastSyncTime, pendingChanges, syncing, syncNow, calendars } = useData()
+  const data = useData()
+  const { isOnline, lastSyncTime, pendingChanges, syncing, syncNow, calendars } = data
   const linkedCount = calendars.filter(c => c.google_sync && c.google_calendar_id).length
+  const googleSync = useGoogleSync()
   const { pinConfig } = usePin()
   const notif = useNotificationSettings()
   const calSettings = useCalendarSettings()
@@ -170,6 +326,35 @@ export default function SettingsScreen() {
   const [pushStatus, setPushStatus] = useState(() => getPushStatus())
   const [pushBusy, setPushBusy] = useState(false)
   const [pushError, setPushError] = useState(false)
+  const [benchmarking, setBenchmarking] = useState(false)
+  const [benchmarkProgress, setBenchmarkProgress] = useState(0)
+  const [benchmarkError, setBenchmarkError] = useState(false)
+  const [benchmarkResult, setBenchmarkResult] = useState(() => loadBenchmark())
+  const [benchmarkHistory, setBenchmarkHistory] = useState(() => loadHistory())
+
+  async function handleBenchmark() {
+    if (benchmarking) return
+    setBenchmarking(true)
+    setBenchmarkProgress(0)
+    setBenchmarkError(false)
+    try {
+      const result = await runBenchmark({
+        data,
+        sync: googleSync,
+        userId: user?.id,
+        buildVersion: BUILD_VERSION,
+        onProgress: ({ percent }) => setBenchmarkProgress(percent),
+      })
+      saveBenchmark(result)
+      setBenchmarkResult(result)
+      setBenchmarkHistory(appendHistory(result))
+    } catch (error) {
+      console.error('Benchmark failed:', error)
+      setBenchmarkError(true)
+    } finally {
+      setBenchmarking(false)
+    }
+  }
 
   // Runs straight from the switch tap — iOS only shows the permission prompt
   // for a user gesture.
@@ -310,6 +495,26 @@ export default function SettingsScreen() {
           />
           <LinkOutRow label={t('settings.data')} onTap={() => goTo('/settings/data')} />
           <LinkOutRow label={t('settings.storage')} onTap={() => goTo('/settings/storage')} />
+          <ActionRow
+            label={benchmarkError ? t('settings.benchmark.error') : benchmarking ? t('settings.benchmark.running') : t('settings.benchmark')}
+            value={!benchmarking && !benchmarkError && benchmarkResult ? t('settings.benchmark.lastScore', { n: benchmarkResult.score }) : undefined}
+            right={benchmarking ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: 'var(--accent)', fontSize: 12, fontWeight: 700 }}>
+                <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.9, ease: 'linear' }} style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--accent)' }} />
+                {benchmarkProgress}%
+              </span>
+            ) : undefined}
+            onTap={benchmarking ? undefined : handleBenchmark}
+          />
+          {benchmarkResult && (
+            <BenchmarkResults
+              result={benchmarkResult}
+              history={benchmarkHistory}
+              t={t}
+              onDownload={() => downloadBenchmark(benchmarkResult)}
+              onClear={() => { clearBenchmark(); setBenchmarkResult(null) }}
+            />
+          )}
         </div>
       ),
     },
@@ -438,6 +643,7 @@ export default function SettingsScreen() {
     notif.enabled, notif.scheduledSessions, notif.todoDue, notif.streak, notif.activeSession, notif.updates,
     notif.calendarEvents, notif.assignmentDue, notif.examSoon, notif.examLeadDays,
     notif.leadMinutes, pushStatus, pushBusy, pushError,
+    benchmarking, benchmarkProgress, benchmarkError, benchmarkResult, benchmarkHistory,
   ])
 
   return (
