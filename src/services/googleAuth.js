@@ -12,9 +12,9 @@
 //     is what kept sending people back through setup;
 //   • the client secret stays in the function's secrets.
 //
-// Every Google service is granted in one consent: connecting from Calendar or
-// from Tasks asks for both, so a single connect covers everything, on every
-// device. include_granted_scopes still folds in anything granted earlier.
+// Scopes are granted incrementally: connecting Calendar never asks for Tasks,
+// so nobody grants access to more than the feature they turned on.
+// include_granted_scopes folds earlier grants into the new token.
 
 import { supabase } from './supabaseConfig.js'
 
@@ -146,7 +146,7 @@ function requestCode(scopes) {
 export async function connect(scopes) {
   if (!isConfigured()) throw new Error('VITE_GOOGLE_CLIENT_ID is not set')
   await loadGis()
-  const code = await requestCode(Object.values(SCOPES))
+  const code = await requestCode(scopes)
   const data = await call({ action: 'exchange', code })
   if (data.error === 'no_refresh_token') {
     token = null
@@ -156,8 +156,7 @@ export async function connect(scopes) {
   if (data.error) throw new Error(data.error)
   remember(data)
   setStatus({ connected: true, scopes: data.scopes, email: data.email })
-  // Google's granular consent lets a user untick a scope in the popup. Only
-  // the one the caller needs is required; the rest can be granted later.
+  // Google's granular consent lets a user untick a scope in the popup.
   if (!scopes.every(s => token.scopes.has(s))) throw new NotSignedIn('scope_not_granted')
   return token.value
 }

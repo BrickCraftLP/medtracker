@@ -340,7 +340,7 @@ export function GoogleSyncProvider({ children }) {
     setAuthorized(prev => ({ ...prev, [provider.id]: true }))
     setRemote(prev => ({ ...prev, [provider.id]: true }))
     lastRunRef.current = 0
-    // The same grant covers Tasks, so its section unlocks too.
+    // The grant may carry Tasks too (include_granted_scopes).
     checkAccess()
     // The grant already succeeded; a failed status write (e.g. offline) must
     // not turn that into a failed connect.
@@ -408,7 +408,7 @@ export function GoogleSyncProvider({ children }) {
       await grantTasks()
       setTasksAuthorized(true)
       lastRunRef.current = 0
-      // The same grant covers Calendar, so its row flips to connected too.
+      // The grant may carry Calendar too (include_granted_scopes).
       checkAccess()
       return true
     } catch (e) {

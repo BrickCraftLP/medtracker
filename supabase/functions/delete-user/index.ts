@@ -38,6 +38,21 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
+    // Revoke the Google grant at Google before its token row goes away with the
+    // account — otherwise the app keeps access to the user's Google data.
+    // Best effort: an already-revoked or expired token must not block deletion.
+    const { data: google } = await supabaseAdmin
+      .from('google_oauth_tokens').select('refresh_token').eq('user_id', user.id).maybeSingle()
+    if (google?.refresh_token) {
+      try {
+        await fetch('https://oauth2.googleapis.com/revoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ token: google.refresh_token }),
+        })
+      } catch { /* network failure: proceed with deletion */ }
+    }
+
     // Delete user data first
     await Promise.all([
       supabaseAdmin.from('todos').delete().eq('user_id', user.id),
@@ -48,6 +63,7 @@ Deno.serve(async (req) => {
       supabaseAdmin.from('notification_prefs').delete().eq('user_id', user.id),
       supabaseAdmin.from('active_sessions').delete().eq('user_id', user.id),
       supabaseAdmin.from('push_log').delete().eq('user_id', user.id),
+      supabaseAdmin.from('google_oauth_tokens').delete().eq('user_id', user.id),
     ])
 
     // Delete the auth account
