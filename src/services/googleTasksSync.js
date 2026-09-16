@@ -21,12 +21,16 @@
 // state only holds the active workspace, and right after a switch can still be
 // empty — a pull matched against nothing would re-insert every task.
 
-import { getMeta, setMeta, getAllByWorkspace, STORES } from './offlineDB.js'
+import { getMeta, setMeta, getAllByWorkspace, getOne, STORES } from './offlineDB.js'
 import { listTasks, insertTask, patchTask, moveTask, deleteTask } from './googleTasks.js'
 import { GoogleApiError } from './googleAuth.js'
 
 const STATE_VERSION = 1
 const SKEW_MS = 5 * 60_000
+// A healthy run creates a handful of items. Past this the matching has broken
+// down, and carrying on is what turns one bad read into hundreds of copies on
+// both sides — so the run stops and says so instead.
+const MAX_CREATES = 25
 const stateKey = listId => `googleTasksList:${listId}`
 // Per workspace, so a deletion can be noted without knowing which list is
 // linked, and survives a relink.
@@ -108,8 +112,19 @@ async function localRows(group, ctx) {
     // copied in again, and every todo looks unsynced and is pushed again.
     for (const td of await getAllByWorkspace(STORES.todos, ws.user_id, ws.id)) rows.set(td.id, td)
   }
-  // React state can be a write ahead of the mirror (a save still in flight).
-  for (const td of ctx.todos) if (ids.has(td.workspace_id)) rows.set(td.id, td)
+  // React state can be a write ahead of the mirror (a save still in flight) —
+  // but just as easily a render behind it, because saveTodo writes the mirror
+  // straight away and React state only on the next commit. Overlaying it
+  // wholesale drops a link this run has just written, and the row is then
+  // pushed and pulled again as though it had never been synced. So: content
+  // from React, the link from whichever side actually has one.
+  for (const td of ctx.todos) {
+    if (!ids.has(td.workspace_id)) continue
+    const mirrored = rows.get(td.id)
+    rows.set(td.id, mirrored
+      ? { ...mirrored, ...td, google_task_id: td.google_task_id ?? mirrored.google_task_id ?? null }
+      : td)
+  }
   return rows
 }
 
@@ -160,7 +175,7 @@ export async function syncTaskList(group, ctx) {
   for (const td of [...rows.values()].sort((a, b) => ((a.created_at ?? '') < (b.created_at ?? '') ? -1 : 1))) {
     // Rows that never go to Google (nested too deep) would otherwise sit here
     // for good and force a full listing on every poll.
-    if (td.google_task_id || !isEligible(td, rows)) continue
+    if (td.google_task_id || td.completed || !isEligible(td, rows)) continue
     const key = contentKey(td.text, td.due_date ?? eventOf(td)?.start_date ?? null)
     if (!unclaimed.has(key)) unclaimed.set(key, [])
     unclaimed.get(key).push(td)
@@ -170,6 +185,27 @@ export async function syncTaskList(group, ctx) {
   // A 404 on patch is either a task that really is gone, or a transient error.
   // Dropping the id on the latter recreates the task next run beside the one
   // still sitting in Google, so it is only believed against a full listing.
+  // Tasks in the list that no todo claims, keyed by content — filled in after
+  // the pull. Lets a push adopt a task another device already created for this
+  // todo instead of inserting a second one.
+  let unclaimedTasks = new Map()
+  const claimTask = (row, event) => {
+    const key = contentKey(row.text, row.due_date ?? event?.start_date ?? null)
+    const bucket = unclaimedTasks.get(key)
+    return bucket?.length ? bucket.shift() : null
+  }
+
+  let createdCount = 0
+  let overBudget = false
+  const budget = () => {
+    if (createdCount < MAX_CREATES) { createdCount += 1; return true }
+    if (!overBudget) {
+      overBudget = true
+      fail('creation budget', new Error(`refusing to create more than ${MAX_CREATES} items in one run`))
+    }
+    return false
+  }
+
   const allTaskIds = new Set()
   let listedAll = false
   const confirmAbsent = async taskId => {
@@ -205,12 +241,16 @@ export async function syncTaskList(group, ctx) {
     const parentId = item.parent ? (parent?.id ?? local?.parent_id ?? null) : null
 
     if (!local) {
+      // Already finished in Google: nothing to bring over. Only a pair that is
+      // already linked carries completion across.
+      if (mapped.completed) return
       // A todo that already stands for this task is adopted, not duplicated.
       const adopted = claimLocal(item)
       if (adopted) {
         remember(await ctx.upsertTodo({ ...adopted, google_task_id: item.id }), item.parent)
         return
       }
+      if (!budget()) return
       remember(await ctx.upsertTodo({
         ...mapped,
         due_time: null,
@@ -269,6 +309,23 @@ export async function syncTaskList(group, ctx) {
     if (row.parent_id && !parentTaskId) return // parent not on Google yet; next round
 
     if (!row.google_task_id) {
+      // Already finished here: never sent to Google in the first place.
+      if (row.completed) return
+      // Another device may have linked this row since the run began — the delta
+      // sync refreshes the mirror independently of us.
+      const fresh = await getOne(STORES.todos, row.id).catch(() => null)
+      if (fresh?.google_task_id) {
+        remember({ ...row, google_task_id: fresh.google_task_id }, parentTaskId)
+        return
+      }
+      // A task already standing for this todo (another device pushed it, or the
+      // link was lost) is adopted rather than inserted a second time.
+      const twin = claimTask(row, event)
+      if (twin) {
+        remember(await ctx.upsertTodo({ ...row, google_task_id: twin.id }), parentTaskId)
+        return
+      }
+      if (!budget()) return
       const created = await insertTask(listId, toTask(row, event), { parent: parentTaskId ?? undefined })
       try {
         remember(await ctx.upsertTodo({ ...row, google_task_id: created.id }), parentTaskId)
@@ -339,19 +396,31 @@ export async function syncTaskList(group, ctx) {
     items.sort((a, b) => (a.parent ? 1 : 0) - (b.parent ? 1 : 0))
     let pullFailed = false
     for (const item of items) {
+      if (overBudget) break
       try { await applyRemote(item) } catch (e) { pullFailed = true; fail(`pull ${item.id}`, e) }
+    }
+
+    // Whatever the pull did not pair off is what a push may adopt.
+    unclaimedTasks = new Map()
+    for (const item of items) {
+      if (item.deleted || item.status === 'completed' || byTaskId.has(item.id)) continue
+      const key = keyOfTask(item)
+      if (!unclaimedTasks.has(key)) unclaimedTasks.set(key, [])
+      unclaimedTasks.get(key).push(item)
     }
 
     // 3. Push, top-level first so a new subtask's parent already has its id.
     const ordered = [...rows.values()].sort((a, b) => (a.parent_id ? 1 : 0) - (b.parent_id ? 1 : 0))
     for (const row of ordered) {
+      if (overBudget) break
       const current = rows.get(row.id)
       if (!current) continue
       try { await pushOne(current) } catch (e) { fail(`push ${row.id}`, e) }
     }
 
-    // A change that failed to apply must come back next time.
-    if (!pullFailed) state.updatedMin = new Date(startedAt - SKEW_MS).toISOString()
+    // A change that failed to apply must come back next time, and a run that
+    // stopped early has not seen the whole list.
+    if (!pullFailed && !overBudget) state.updatedMin = new Date(startedAt - SKEW_MS).toISOString()
   } finally {
     await setMeta(stateKey(listId), state)
   }

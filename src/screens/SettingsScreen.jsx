@@ -27,8 +27,8 @@ import {
   loadHistory, appendHistory,
 } from '../utils/benchmark.js'
 
-const EXPORT_VERSION = '1.8.2'
-const BUILD_VERSION = '26I13.5F'
+const EXPORT_VERSION = '1.8.3'
+const BUILD_VERSION = '26I16.1B'
 const LEAD_MINUTES = [0, 5, 10, 15, 30]
 // Must match the check constraint on notification_prefs.exam_lead_days.
 const EXAM_LEAD_DAYS = [1, 2, 3, 7]

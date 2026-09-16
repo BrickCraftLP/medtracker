@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import ErrorBoundary from './components/Common/ErrorBoundary.jsx'
 import { warmOfflineDB } from './services/offlineDB.js'
 import { hideBootLoader } from './utils/bootLoader.js'
 import './index.css'
@@ -14,6 +15,8 @@ setTimeout(hideBootLoader, 8000)
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>,
 )

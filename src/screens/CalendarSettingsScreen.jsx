@@ -23,6 +23,9 @@ import { NEW_TASK_LIST } from '../context/GoogleSyncContext.jsx'
 import { isShared } from '../utils/calendar/calendarScope.js'
 import Switch from '../components/Common/Switch.jsx'
 import { GlassCard } from '../components/Common/Glass.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
+import { STORES, getAllByUser } from '../services/offlineDB.js'
+import { findDuplicates, findCompleted } from '../utils/todoCleanup.js'
 
 const GLASS = {
   background: 'var(--glass-card-bg)',
@@ -46,7 +49,8 @@ export default function CalendarSettingsScreen() {
   const { setDirection } = useContext(NavDirectionContext)
   // All of them, not just the ones visible here: this screen is where a
   // calendar is granted to or revoked from a workspace.
-  const { allCalendars: calendars, upsertCalendar } = useData()
+  const { allCalendars: calendars, upsertCalendar, removeTodos } = useData()
+  const { user } = useAuth()
   const { workspaces } = useWorkspace()
   const { t } = useLanguage()
   const settings = useCalendarSettings()
@@ -57,6 +61,33 @@ export default function CalendarSettingsScreen() {
   const [picking, setPicking] = useState(null) // calendar id
   const [taskLists, setTaskLists] = useState(null) // [{id,name}]
   const [pickingList, setPickingList] = useState(null) // workspace id
+  // Two taps: the first counts what would go, the second deletes it.
+  const [cleanup, setCleanup] = useState(null)             // { kind, rows }
+  const [cleanupResult, setCleanupResult] = useState(null) // { kind, count }
+
+  async function prepareCleanup(kind) {
+    setBusy(true)
+    setCleanupResult(null)
+    try {
+      // Every workspace, from the mirror: React state only holds the active one.
+      const rows = await getAllByUser(STORES.todos, user.id)
+      setCleanup({ kind, rows: kind === 'duplicates' ? findDuplicates(rows) : findCompleted(rows) })
+    } catch (e) {
+      console.error('todo cleanup: scan failed', e)
+    } finally { setBusy(false) }
+  }
+
+  async function runCleanup() {
+    if (!cleanup?.rows.length) return
+    const { kind, rows } = cleanup
+    setBusy(true)
+    try {
+      setCleanupResult({ kind, count: await removeTodos(rows) })
+      setCleanup(null)
+    } catch (e) {
+      console.error('todo cleanup: delete failed', e)
+    } finally { setBusy(false) }
+  }
 
   // Same rule as the calendar list above: only once this device holds a Tasks
   // token, so loading the lists can never fall back to a blocked popup.
@@ -70,8 +101,10 @@ export default function CalendarSettingsScreen() {
   async function handleConnectTasks() {
     setBusy(true)
     try {
-      if (await sync.tasks.connect()) setTaskLists(await sync.tasks.listLists())
-    } finally { setBusy(false) }
+      await sync.tasks.connect()
+      setTaskLists(await sync.tasks.listLists())
+    } catch { /* reason is in sync.error, rendered below */ }
+    finally { setBusy(false) }
   }
 
   async function handleLinkList(workspace, listId) {
@@ -83,13 +116,10 @@ export default function CalendarSettingsScreen() {
     } finally { setBusy(false) }
   }
 
-  // Connected but the grant is gone: ask Google again right here. The setup
-  // flow is only for a first connect — it would make the user re-pick
-  // calendars that are still linked.
+  // Connect and reconnect both open Google's sign-in popup straight off the
+  // tap; calendars and task lists are linked on their own screens afterwards.
   function handleProviderTap(provider) {
-    if (sync.needsReconnect[provider.id]) handleConnect(provider.id)
-    else if (sync.connected[provider.id]) sync.disconnect(provider.id)
-    else if (provider.id === 'google') { setDirection(1); navigate('/calendar/connect') }
+    if (sync.connected[provider.id] && !sync.needsReconnect[provider.id]) sync.disconnect(provider.id)
     else handleConnect(provider.id)
   }
 
@@ -109,9 +139,10 @@ export default function CalendarSettingsScreen() {
   async function handleConnect(providerId) {
     setBusy(true)
     try {
-      const ok = await sync.connect(providerId)
-      if (ok) setRemote(await sync.listRemoteCalendars(providerId))
-    } finally { setBusy(false) }
+      await sync.connect(providerId)
+      setRemote(await sync.listRemoteCalendars(providerId))
+    } catch { /* reason is in sync.error, rendered below */ }
+    finally { setBusy(false) }
   }
 
   async function toggleShareAll(calendar, value) {
@@ -481,6 +512,38 @@ export default function CalendarSettingsScreen() {
               {t('settings.google.syncOffHint')}
             </p>
           )
+        )}
+
+        {/* Maintenance — available whether or not Google sync is on */}
+        {section === 'todos' && (
+          <Section title={t('settings.tasks.cleanup')}>
+            {['duplicates', 'completed'].map(kind => {
+              const pending = cleanup?.kind === kind ? cleanup.rows.length : null
+              const done = cleanupResult?.kind === kind ? cleanupResult.count : null
+              return (
+                <Row
+                  key={kind}
+                  label={t(`settings.tasks.cleanup.${kind}`)}
+                  value={pending === 0
+                    ? t('settings.tasks.cleanup.none')
+                    : done != null ? t('settings.tasks.cleanup.done', { count: String(done) }) : undefined}
+                  onTap={busy ? undefined : () => (pending ? setCleanup(null) : prepareCleanup(kind))}
+                  right={pending
+                    ? <button
+                        disabled={busy}
+                        onClick={e => { e.stopPropagation(); runCleanup() }}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: 'var(--wrong)' }}
+                      >
+                        {t('settings.tasks.cleanup.confirm', { count: String(pending) })}
+                      </button>
+                    : undefined}
+                />
+              )
+            })}
+            <div style={{ padding: '10px 16px 13px', fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.45 }}>
+              {t('settings.tasks.cleanup.hint')}
+            </div>
+          </Section>
         )}
 
         {errorText && (

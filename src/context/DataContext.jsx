@@ -477,7 +477,37 @@ export function DataProvider({ children }) {
     } finally { endSync() }
   }
 
-  // ── Calendar v2 ────────────────────────────────────────────────────────
+  // Many at once, for the cleanup actions: one repaint, and every linked Google
+  // task noted for deletion first — the Tasks sync deletes those before it
+  // pulls, so the removed todos are not re-imported. Rows are deleted in the
+  // order given (subtasks before parents).
+  async function removeTodos(rows) {
+    if (!rows?.length) return 0
+    for (const td of rows) {
+      if (td.google_task_id) await noteTaskDelete(td.workspace_id, td.google_task_id).catch(() => {})
+    }
+    const ids = new Set(rows.map(td => td.id))
+    setTodos(prev => prev.filter(t => !ids.has(t.id)))
+    beginSync()
+    let removed = 0
+    try {
+      for (const td of rows) {
+        await deleteTodo(user.id, td.id)
+        removed += 1
+      }
+      return removed
+    } catch (e) {
+      // Put back whatever did not get deleted.
+      await hydrateFromOffline({ force: true })
+      throw e
+    } finally {
+      refreshPending()
+      notifyPeers()
+      endSync()
+    }
+  }
+
+  // ── Calendar v2────────────────────────────────────────────────────────
 
   // One optimistic writer shared by all four calendar entities. Same contract
   // as upsertTodo above: patch state on the spot, reconcile with the saved row,
@@ -688,7 +718,7 @@ export function DataProvider({ children }) {
       isOnline, pendingChanges,
       widgetModalOpen, setWidgetModalOpen,
       upsertTopic, removeTopic,
-      upsertTodo, removeTodo, upsertTodos,
+      upsertTodo, removeTodo, upsertTodos, removeTodos,
       upsertCalendar, removeCalendar,
       upsertSemester, removeSemester,
       upsertEvent, removeEvent,

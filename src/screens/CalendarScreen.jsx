@@ -15,6 +15,7 @@ import { useLanguage } from '../context/LanguageContext.jsx'
 import { useWorkspace } from '../context/WorkspaceContext.jsx'
 import { useNavLayout } from '../context/NavLayoutContext.jsx'
 import { useCalendarSettings } from '../context/CalendarSettingsContext.jsx'
+import { useGoogleSync } from '../context/GoogleSyncContext.jsx'
 import { availableProviders } from '../services/sync/index.js'
 import CalendarToolbar from '../components/Calendar/CalendarToolbar.jsx'
 import TimeGridView from '../components/Calendar/TimeGridView.jsx'
@@ -58,6 +59,16 @@ export default function CalendarScreen() {
   const [params] = useSearchParams()
   const locale = language === 'de' ? de : enUS
   const { connectPromptDismissed, setSetting: setCalSetting } = useCalendarSettings()
+  const googleSync = useGoogleSync()
+
+  // Straight off the tap: Google's sign-in popup is blocked outside a gesture.
+  // Linking calendars happens on the settings screen once signed in.
+  async function handleConnectGoogle() {
+    try {
+      await googleSync.connect('google')
+      navigate('/settings/google/calendar')
+    } catch { /* reason is in googleSync.error */ }
+  }
 
   // Read straight from the calendars: the prompt only needs to know whether
   // anything is linked, not the sync state GoogleSyncProvider keeps.
@@ -307,7 +318,7 @@ export default function CalendarScreen() {
                   {t('calsetup.banner.dismiss')}
                 </GlassButton>
                 <GlassButton height={34} fontSize={13} variant="primary"
-                  onClick={() => navigate('/calendar/connect')}>
+                  onClick={handleConnectGoogle}>
                   {t('calsetup.banner.cta')}
                 </GlassButton>
               </div>

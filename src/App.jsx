@@ -29,35 +29,57 @@ import FirstLoadScreen from './screens/FirstLoadScreen.jsx'
 import HomeScreen from './screens/HomeScreen.jsx'
 import { AssistantProvider } from './assistant/AssistantProvider.jsx'
 import AssistantOverlay from './assistant/ui/AssistantOverlay.jsx'
+import ErrorBoundary, { isChunkError } from './components/Common/ErrorBoundary.jsx'
+import { useLanguage } from './context/LanguageContext.jsx'
+
+// Reloading once is the whole recovery: after a deploy an installed PWA can
+// still be running an old index.html whose chunk filenames no longer exist, so
+// import() rejects and the screen never renders. The session flag keeps a
+// genuinely missing chunk from reloading in a loop.
+const RELOAD_KEY = 'mt_chunk_reloaded'
+
+function lazyRoute(loader) {
+  return lazy(() => loader().catch(err => {
+    if (!isChunkError(err)) throw err
+    let already = false
+    try {
+      already = sessionStorage.getItem(RELOAD_KEY) === '1'
+      if (!already) sessionStorage.setItem(RELOAD_KEY, '1')
+    } catch { /* private mode: fall through and surface the error */ }
+    if (already) throw err
+    window.location.reload()
+    return new Promise(() => {}) // never settles; the reload replaces this document
+  }))
+}
 
 // Route-level code splitting: only the login / first-load / home path is in the
 // initial bundle. Every other screen (and the recharts + colour-picker deps they
 // pull in) is fetched on demand and warmed up during idle time below.
-const PinLockScreen = lazy(() => import('./screens/PinLockScreen.jsx'))
-const TopicsScreen = lazy(() => import('./screens/TopicsScreen.jsx'))
-const CalendarScreen = lazy(() => import('./screens/CalendarScreen.jsx'))
-const ExamsScreen = lazy(() => import('./screens/ExamsScreen.jsx'))
-const CalendarSettingsScreen = lazy(() => import('./screens/CalendarSettingsScreen.jsx'))
-const CalendarConnectScreen = lazy(() => import('./screens/CalendarConnectScreen.jsx'))
-const StatisticsScreen = lazy(() => import('./screens/StatisticsScreen.jsx'))
-const ActiveSessionScreen = lazy(() => import('./screens/ActiveSessionScreen.jsx'))
-const SessionSummaryScreen = lazy(() => import('./screens/SessionSummaryScreen.jsx'))
-const TopicStatsScreen = lazy(() => import('./screens/TopicStatsScreen.jsx'))
-const DatenschutzScreen = lazy(() => import('./screens/DatenschutzScreen.jsx'))
-const SettingsScreen = lazy(() => import('./screens/SettingsScreen.jsx'))
-const DataSettingsScreen = lazy(() => import('./screens/DataSettingsScreen.jsx'))
-const StorageSettingsScreen = lazy(() => import('./screens/StorageSettingsScreen.jsx'))
-const LanguageSettingsScreen = lazy(() => import('./screens/LanguageSettingsScreen.jsx'))
-const AccountSettingsScreen = lazy(() => import('./screens/AccountSettingsScreen.jsx'))
-const GraphsCustomisationScreen = lazy(() => import('./screens/GraphsCustomisationScreen.jsx'))
-const HeatmapCustomisationScreen = lazy(() => import('./screens/HeatmapCustomisationScreen.jsx'))
-const AppearanceScreen = lazy(() => import('./screens/AppearanceScreen.jsx'))
-const PrideCollectionScreen = lazy(() => import('./screens/PrideCollectionScreen.jsx'))
-const CustomThemeScreen = lazy(() => import('./screens/CustomThemeScreen.jsx'))
-const ChangelogScreen = lazy(() => import('./screens/ChangelogScreen.jsx'))
-const TourScreen = lazy(() => import('./screens/TourScreen.jsx'))
-const CreateWorkspaceScreen = lazy(() => import('./screens/CreateWorkspaceScreen.jsx'))
-const AssistantSettingsScreen = lazy(() => import('./screens/AssistantSettingsScreen.jsx'))
+const PinLockScreen = lazyRoute(() => import('./screens/PinLockScreen.jsx'))
+const TopicsScreen = lazyRoute(() => import('./screens/TopicsScreen.jsx'))
+const CalendarScreen = lazyRoute(() => import('./screens/CalendarScreen.jsx'))
+const ExamsScreen = lazyRoute(() => import('./screens/ExamsScreen.jsx'))
+const CalendarSettingsScreen = lazyRoute(() => import('./screens/CalendarSettingsScreen.jsx'))
+const CalendarConnectScreen = lazyRoute(() => import('./screens/CalendarConnectScreen.jsx'))
+const StatisticsScreen = lazyRoute(() => import('./screens/StatisticsScreen.jsx'))
+const ActiveSessionScreen = lazyRoute(() => import('./screens/ActiveSessionScreen.jsx'))
+const SessionSummaryScreen = lazyRoute(() => import('./screens/SessionSummaryScreen.jsx'))
+const TopicStatsScreen = lazyRoute(() => import('./screens/TopicStatsScreen.jsx'))
+const DatenschutzScreen = lazyRoute(() => import('./screens/DatenschutzScreen.jsx'))
+const SettingsScreen = lazyRoute(() => import('./screens/SettingsScreen.jsx'))
+const DataSettingsScreen = lazyRoute(() => import('./screens/DataSettingsScreen.jsx'))
+const StorageSettingsScreen = lazyRoute(() => import('./screens/StorageSettingsScreen.jsx'))
+const LanguageSettingsScreen = lazyRoute(() => import('./screens/LanguageSettingsScreen.jsx'))
+const AccountSettingsScreen = lazyRoute(() => import('./screens/AccountSettingsScreen.jsx'))
+const GraphsCustomisationScreen = lazyRoute(() => import('./screens/GraphsCustomisationScreen.jsx'))
+const HeatmapCustomisationScreen = lazyRoute(() => import('./screens/HeatmapCustomisationScreen.jsx'))
+const AppearanceScreen = lazyRoute(() => import('./screens/AppearanceScreen.jsx'))
+const PrideCollectionScreen = lazyRoute(() => import('./screens/PrideCollectionScreen.jsx'))
+const CustomThemeScreen = lazyRoute(() => import('./screens/CustomThemeScreen.jsx'))
+const ChangelogScreen = lazyRoute(() => import('./screens/ChangelogScreen.jsx'))
+const TourScreen = lazyRoute(() => import('./screens/TourScreen.jsx'))
+const CreateWorkspaceScreen = lazyRoute(() => import('./screens/CreateWorkspaceScreen.jsx'))
+const AssistantSettingsScreen = lazyRoute(() => import('./screens/AssistantSettingsScreen.jsx'))
 
 // Directional slide variants — custom value is the direction (-1 | 0 | 1)
 const pageVariants = {
@@ -68,6 +90,7 @@ const pageVariants = {
 
 function PageWrapper({ children }) {
   const { direction } = useContext(NavDirectionContext)
+  const { t } = useLanguage()
   const location = useLocation()
   const DIRECTIONAL = [...TABS, '/topic-stats']
   const d = DIRECTIONAL.includes(location.pathname) ? direction : 0
@@ -87,9 +110,13 @@ function PageWrapper({ children }) {
         overflow: 'hidden',
       }}
     >
-      <Suspense fallback={<div style={{ flex: 1, background: 'var(--bg-primary)' }} />}>
-        {children}
-      </Suspense>
+      {/* Per screen, so one failing route leaves the rest of the app usable.
+          Suspense only covers a pending import — a rejected one is an error. */}
+      <ErrorBoundary labels={{ title: t('error.title'), chunk: t('error.chunk'), action: t('error.action') }}>
+        <Suspense fallback={<div style={{ flex: 1, background: 'var(--bg-primary)' }} />}>
+          {children}
+        </Suspense>
+      </ErrorBoundary>
     </motion.div>
   )
 }

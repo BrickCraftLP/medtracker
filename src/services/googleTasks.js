@@ -1,6 +1,5 @@
 // Google Tasks API, straight from the browser. Auth is shared with Calendar
-// (see googleAuth.js); the Tasks scope is asked for separately so granting it
-// is opt-in.
+// (see googleAuth.js), and one connect grants both.
 //
 // Requires the Google Tasks API to be enabled in the same Cloud project as
 // the Calendar API.

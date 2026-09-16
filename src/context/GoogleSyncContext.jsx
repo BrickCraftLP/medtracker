@@ -125,6 +125,13 @@ export function GoogleSyncProvider({ children }) {
   )
   const taskGroups = useMemo(() => taskListGroups(workspaces), [workspaces])
 
+  // What a sync would actually send. Deliberately excludes google_task_id:
+  // linking is the sync's own bookkeeping, and counting it as a change would
+  // make every run schedule the next one, without end.
+  const todosSignature = useMemo(() => JSON.stringify(todos.map(td => [
+    td.id, td.text ?? '', td.notes ?? null, !!td.completed, td.due_date ?? null, td.parent_id ?? null,
+  ])), [todos])
+
   // Asks the server, never Google, so it's safe on launch and on every return
   // to the foreground — no popup can come of it.
   const checkAccess = useCallback(async ({ fresh = false } = {}) => {
@@ -259,7 +266,10 @@ export function GoogleSyncProvider({ children }) {
       setSyncing(false)
       if (againRef.current) {
         againRef.current = false
-        setTimeout(() => runRef.current?.({ force: true, auto: true }), 0)
+        // Not on the next tick: this run's writes reach React state only on the
+        // following commit, and a run starting before that reads its own todos
+        // as unlinked — pushing and pulling them all over again.
+        setTimeout(() => runRef.current?.({ force: true, auto: true }), EDIT_DEBOUNCE_MS)
       }
     }
   }, [])
@@ -310,7 +320,7 @@ export function GoogleSyncProvider({ children }) {
     if (navigator.onLine === false) return
     const id = setTimeout(() => run({ force: true, auto: true }), EDIT_DEBOUNCE_MS)
     return () => clearTimeout(id)
-  }, [allEvents, todos]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allEvents, todosSignature]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Must be called straight from a click: it opens Google's popup. Also the
   // reconnect — in place, never through the setup flow.
@@ -321,13 +331,16 @@ export function GoogleSyncProvider({ children }) {
     try {
       await provider.connect()
     } catch (e) {
+      // Rethrown, not swallowed: a caller reading `error` in the same tick sees
+      // the previous render's value, which is how a failed connect ended up
+      // showing no reason at all.
       setError(messageOf(e))
-      return false
+      throw e
     }
     setAuthorized(prev => ({ ...prev, [provider.id]: true }))
     setRemote(prev => ({ ...prev, [provider.id]: true }))
     lastRunRef.current = 0
-    // The grant may carry Tasks too (include_granted_scopes).
+    // The same grant covers Tasks, so its section unlocks too.
     checkAccess()
     // The grant already succeeded; a failed status write (e.g. offline) must
     // not turn that into a failed connect.
@@ -395,12 +408,14 @@ export function GoogleSyncProvider({ children }) {
       await grantTasks()
       setTasksAuthorized(true)
       lastRunRef.current = 0
+      // The same grant covers Calendar, so its row flips to connected too.
+      checkAccess()
       return true
     } catch (e) {
       setError(messageOf(e))
-      return false
+      throw e
     }
-  }, [])
+  }, [checkAccess])
 
   const listLists = useCallback(async () => {
     try {

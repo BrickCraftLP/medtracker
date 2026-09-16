@@ -51,6 +51,8 @@ export default function CalendarConnectScreen() {
   }
 
   function fail(message, back) {
+    // Google withheld the refresh token; tapping Connect again gets one.
+    if (message === 'retry_consent') message = t('settings.google.retryConsent')
     setFailure(message || t('calsetup.error.body'))
     setRetryTo(back)
     setStep('failed')
@@ -87,13 +89,7 @@ export default function CalendarConnectScreen() {
     try {
       // Connected on another device isn't enough — this one needs its own
       // token, and only a click may open Google's popup for it.
-      if (!sync.authorized.google) {
-        const ok = await sync.connect('google')
-        if (!ok) {
-          fail(sync.error, 'overview')
-          return
-        }
-      }
+      if (!sync.authorized.google) await sync.connect('google')
       await loadRemotes()
       setStep('pick')
     } catch (e) {
